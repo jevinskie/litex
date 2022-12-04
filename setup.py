@@ -59,6 +59,7 @@ setup(
             # Development tools.
             "litex_read_verilog = litex.tools.litex_read_verilog:main",
             "litex_contributors = litex.tools.litex_contributors:main",
+            "litex_remote_build = litex.tools.litex_remote_build:main",
         ],
     },
 )
