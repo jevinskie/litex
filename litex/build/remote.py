@@ -22,14 +22,17 @@ def get_remote_user(user):
         return user
     return os.getenv("LITEX_REMOTE_BUILD_USER")
 
-def run_remote(host, args, user=None, pty=False):
+def run_remote(host, args, user=None, pty=False, **kwargs):
     host = get_remote_host(host)
     user = get_remote_user(user)
     conn = fabric.Connection(host, user)
     term = os.getenv("TERM", "vt100")
     conn.run(f"env TERM={term} " + " ".join(args), pty=pty)
 
-def run_build_server(host, user=None):
+def run_build_server_remotely(host, user=None):
     host = get_remote_host(host)
     user = get_remote_user(user)
-    # run_remote(host, , user=None, pty=False)
+    run_remote(host, ["litex_build_server", "--serve"], user=user, echo=True, asynchronous=True)
+
+def run_build_server():
+    print("serving")
