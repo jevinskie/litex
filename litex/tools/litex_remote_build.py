@@ -9,7 +9,7 @@ def _get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--run", nargs=argparse.REMAINDER, help="run command on remote node")
     parser.add_argument("--pty", action="store_true", help="pty mode (act like a real terminal)")
-    parser.add_argument("--serve", action="store_true", help="run the LiteX build server")
+    parser.add_argument("--serve", metavar="domain_socket", help="run the LiteX build server")
     parser.add_argument("--remote-serve", action="store_true", help="run the LiteX build server remotely")
     parser.add_argument("--host", help="remote build server hostname")
     parser.add_argument("--user", help="remote build server username")
@@ -20,10 +20,7 @@ def main():
     if args.run is not None:
         run_remote(args.host, args.run, user=args.user, pty=args.pty)
     elif args.serve:
-        run_build_server()
-        print("sleeping")
-        time.sleep(5)
-        print("exiting")
+        run_build_server(args.serve)
     elif args.remote_serve:
         run_build_server_remotely(args.host, user=args.user)
 
