@@ -3,17 +3,26 @@ import sys
 import tempfile
 from pathlib import Path
 import socket
+import subprocess
+import time
 
-import fabric
 import rpyc
-import sysrsync
 from rpyc.core.service import ClassicService
 from rpyc.utils.server import ThreadPoolServer
 
-def ssh(host, *args, user=None, pty=False):
-    pass
+class BuildService(rpyc.Service):
+    exposed_platform = None
 
-def _getenv(var):
+class BuildServer:
+    def __init__(self, socket_path: Path):
+        self.socket_path = socket_path
+        self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path), protocol_config={"allow_all_attrs": True})
+        self.srv_inst = rpyc.lib.spawn(lambda: self.srv.start())
+
+    def join(self):
+        self.srv_inst.join()
+
+def _getenv_checked(var):
     val = os.getenv(var)
     if val is None:
         raise KeyError(f"environment variable '{var}' is not defined")
@@ -22,49 +31,51 @@ def _getenv(var):
 def get_remote_host(host):
     if host is not None:
         return host
-    return _getenv("LITEX_REMOTE_BUILD_HOST")
+    return _getenv_checked("LITEX_REMOTE_BUILD_HOST")
 
 def get_remote_user(user):
     if user is not None:
         return user
     return os.getenv("LITEX_REMOTE_BUILD_USER")
 
-def run_remote(host, args, user=None, pty=False, **kwargs):
-    host = get_remote_host(host)
-    user = get_remote_user(user)
-    conn = fabric.Connection(host, user)
-    kwargs.update(pty=pty, err_stream=sys.stderr, out_stream=sys.stdout)
-    term = os.getenv("TERM", "vt100")
-    conn.run(f"env TERM={term} " + " ".join(args), **kwargs)
-
-
 class RemoteContext:
     def __init__(self, host=None, user=None):
         self.host = get_remote_host(host)
         self.user = get_remote_user(user)
-        self.conn = fabric.Connection(self.host, self.user)
-        self.sock_path = Path(tempfile.mkdtemp(prefix='litex-remote-', dir="/tmp")) / "rpyc.sock"
-        self.conn.transport.request_port_forward()
+        self.socket_path = Path(tempfile.mktemp(prefix='litex-remote-rpyc-sock-', suffix=".sock", dir="/tmp"))
+        user_host_arg = self.host
+        if self.user:
+            user_host_arg = f"{self.user}@{self.host}"
+        fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}"]
+        py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", str(self.socket_path)])
+        self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
+
+    def start_remote_server(self):
+        self.ssh_proc = subprocess.Popen(self.args)
+        print(f"wait: {self.socket_path}")
+        while not os.path.exists(self.socket_path):
+            time.sleep(0.010)
+        time.sleep(1)
+        print(f"connect: {self.socket_path}")
+        self.rpyc = rpyc.utils.factory.unix_connect(str(self.socket_path))
 
 
-def run_build_server_remotely(host, user=None):
-    host = get_remote_host(host)
-    user = get_remote_user(user)
-    conn = fabric.Connection(host, user)
-    run_kwargs = dict(pty=True, err_stream=sys.stderr, out_stream=sys.stdout)
-    term = os.getenv("TERM", "vt100")
-    sock_path = Path(tempfile.mkdtemp(prefix='litex-remote-', dir="/tmp")) / "rpyc.sock"
-    conn.create_session()
-    conn.transport.request_port_forward(sock_path)
-    prom = conn.run(f"env TERM={term} sh -l -c 'litex_remote_build --serve {sock_path}'", asynchronous=True, **run_kwargs)
+    def close(self):
+        self.ssh_proc.wait()
+        self.ssh_proc = None
+
+def run_build_server_remotely(host=None, user=None):
+    rc = RemoteContext(host, user)
+    rc.start_remote_server()
+    print(rc.rpyc)
+    print(rc.rpyc.ping())
+    rc.close()
     print("after run")
-    res = prom.join()
 
-def run_build_server(domain_socket_path):
-    print(f"serving: domain socket: {domain_socket_path}")
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    print("binding", file=sys.stderr)
-    sock.bind(domain_socket_path)
-    sock.listen(1)
-    con, addr = sock.accept()
-    print(f"con: {con} addr: {addr}")
+
+def run_build_server(socket_path):
+    print(f"serving on {socket_path}")
+    build_server = BuildServer(socket_path)
+    print("build server started")
+    build_server.join()
+    print("build server joined")
