@@ -44,15 +44,20 @@ class BuildServer:
         print("bs spawning")
         self.srv_inst = rpyc.lib.spawn(lambda: self.srv.start())
         print("bs spawned")
-        self._send_sync()
-
-    def _send_sync(self):
         self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sync_sock.connect(self.sync_path)
-        self.sync_sock.sendall(b"sync")
+        self._send_sync_start()
+
+    def _send_sync_start(self):
+        self.sync_sock.sendall(b"start")
 
     def join(self):
         print(f"BuildServer join()\n{self.srv_inst}")
+        sync_msg = self.sync_sock.recv(4)
+        assert sync_msg == b"stop"
+        self.sync_sock.sendall(b"dead")
+        self.sync_sock.close()
+        self.srv.close()
         self.srv_inst.join()
         pass 
 
@@ -84,6 +89,10 @@ class RemoteContext:
         fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
         py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
         self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
+        self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sync_sock.bind(str(self.sync_path))
+        self.sync_sock.listen(1)
+        self.conn, _ = self.sync_sock.accept()
 
     def start_remote_server(self):
         self.ssh_proc = subprocess.Popen(self.args, stdout=sys.stdout, stderr=sys.stderr)
@@ -94,16 +103,20 @@ class RemoteContext:
         print(f"connect: {self.socket_path}")
         self.rpyc = rpyc.utils.factory.unix_connect(str(self.socket_path))
 
-    def _wait_for_sync(self):
-        sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sync_sock.bind(str(self.sync_path))
-        sync_sock.listen(1)
-        conn, _ = sync_sock.accept()
-        sync_msg = conn.recv(4)
-        assert sync_msg == b"sync"
-        sync_sock.close()
+    def _wait_for_sync_start(self):
+        sync_msg = self.conn.recv(4)
+        assert sync_msg == b"start"
+
+    def _wait_for_sync_stop(self):
+        sync_msg = self.conn.recv(4)
+        assert sync_msg == b"dead"
+        self.conn.close()
+        self.sync_sock.close()
 
     def close(self):
+        self.conn.sendall(b"stop")
+        sync_msg = self.conn.recv(4)
+        assert sync_msg == b"dead"
         print("close/ssh_proc wait")
         self.ssh_proc.wait()
         self.ssh_proc = None
