@@ -10,6 +10,7 @@ import syslog
 import rpyc
 from rpyc.core.service import ClassicService
 from rpyc.utils.server import ThreadPoolServer
+from rich import print
 
 orig_print = print
 def print(*args, **kwargs):
@@ -17,16 +18,29 @@ def print(*args, **kwargs):
     syslog.syslog(syslog.LOG_INFO, format(*args))
 
 class BuildService(rpyc.Service):
+    exposed_serv = None
     exposed_platform = None
+    exposed_soc = None
+    exposed_ns = None
 
-    def on_disconnect(self):
-        print("BuildService disconnect")
+    def exposed_close(self):
+        self.exposed_serv.close()
+
+    def exposed_call_on_server(self, func):
+        return func(self.exposed_serv, self.exposed_platform, self.exposed_soc, self.exposed_ns)
+
+    def on_connect(self, conn):
+        print(f"BuildService connect {conn}")
+
+    def on_disconnect(self, conn):
+        print(f"BuildService disconnect {conn}")
 
 class BuildServer:
     def __init__(self, socket_path: Path, sync_path: Path):
         self.socket_path = socket_path
         self.sync_path = sync_path
         self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path), protocol_config={"allow_all_attrs": True})
+        self.srv.service.exposed_serv = self.srv
         print("bs spawning")
         self.srv_inst = rpyc.lib.spawn(lambda: self.srv.start())
         print("bs spawned")
@@ -38,6 +52,7 @@ class BuildServer:
         self.sync_sock.sendall(b"sync")
 
     def join(self):
+        print(f"BuildServer join()\n{self.srv_inst}")
         self.srv_inst.join()
         pass 
 
@@ -89,6 +104,7 @@ class RemoteContext:
         sync_sock.close()
 
     def close(self):
+        print("close/ssh_proc wait")
         self.ssh_proc.wait()
         self.ssh_proc = None
 
@@ -97,7 +113,11 @@ def run_build_server_remotely(host=None, user=None):
     rc.start_remote_server()
     print(rc.rpyc)
     print(rc.rpyc.ping())
+    print("rpyc close")
+    print(rc.rpyc.root.close())
+    print("local close 1")
     rc.rpyc.close()
+    print("local close 2")
     rc.close()
     print("after run")
 
