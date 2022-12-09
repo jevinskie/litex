@@ -5,13 +5,22 @@ from pathlib import Path
 import socket
 import subprocess
 import time
+import syslog
 
 import rpyc
 from rpyc.core.service import ClassicService
 from rpyc.utils.server import ThreadPoolServer
 
+orig_print = print
+def print(*args, **kwargs):
+    orig_print(*args, **kwargs)
+    syslog.syslog(syslog.LOG_INFO, format(*args))
+
 class BuildService(rpyc.Service):
     exposed_platform = None
+
+    def on_disconnect(self):
+        print("BuildService disconnect")
 
 class BuildServer:
     def __init__(self, socket_path: Path, sync_path: Path):
@@ -21,12 +30,16 @@ class BuildServer:
         print("bs spawning")
         self.srv_inst = rpyc.lib.spawn(lambda: self.srv.start())
         print("bs spawned")
+        self._send_sync()
+
+    def _send_sync(self):
         self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sync_sock.connect(self.sync_path)
         self.sync_sock.sendall(b"sync")
 
     def join(self):
         self.srv_inst.join()
+        pass 
 
 def _getenv_checked(var):
     val = os.getenv(var)
@@ -58,18 +71,22 @@ class RemoteContext:
         self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
 
     def start_remote_server(self):
-        self.ssh_proc = subprocess.Popen(self.args)
+        self.ssh_proc = subprocess.Popen(self.args, stdout=sys.stdout, stderr=sys.stderr)
         print(f"wait: {self.socket_path}")
         while not os.path.exists(self.socket_path) and not os.path.exists(self.sync_path):
             time.sleep(0.010)
+        self._wait_for_sync()
+        print(f"connect: {self.socket_path}")
+        self.rpyc = rpyc.utils.factory.unix_connect(str(self.socket_path))
+
+    def _wait_for_sync(self):
         sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sync_sock.bind(str(self.sync_path))
         sync_sock.listen(1)
         conn, _ = sync_sock.accept()
         sync_msg = conn.recv(4)
         assert sync_msg == b"sync"
-        print(f"connect: {self.socket_path}")
-        self.rpyc = rpyc.utils.factory.unix_connect(str(self.socket_path))
+        sync_sock.close()
 
     def close(self):
         self.ssh_proc.wait()
@@ -80,6 +97,7 @@ def run_build_server_remotely(host=None, user=None):
     rc.start_remote_server()
     print(rc.rpyc)
     print(rc.rpyc.ping())
+    rc.rpyc.close()
     rc.close()
     print("after run")
 
