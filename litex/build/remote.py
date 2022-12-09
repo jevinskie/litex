@@ -14,10 +14,16 @@ class BuildService(rpyc.Service):
     exposed_platform = None
 
 class BuildServer:
-    def __init__(self, socket_path: Path):
+    def __init__(self, socket_path: Path, sync_path: Path):
         self.socket_path = socket_path
+        self.sync_path = sync_path
         self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path), protocol_config={"allow_all_attrs": True})
+        print("bs spawning")
         self.srv_inst = rpyc.lib.spawn(lambda: self.srv.start())
+        print("bs spawned")
+        self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sync_sock.connect(self.sync_path)
+        self.sync_sock.sendall(b"sync")
 
     def join(self):
         self.srv_inst.join()
@@ -43,22 +49,27 @@ class RemoteContext:
         self.host = get_remote_host(host)
         self.user = get_remote_user(user)
         self.socket_path = Path(tempfile.mktemp(prefix='litex-remote-rpyc-sock-', suffix=".sock", dir="/tmp"))
+        self.sync_path = Path(tempfile.mktemp(prefix='litex-remote-rpyc-sync-', suffix=".sock", dir="/tmp"))
         user_host_arg = self.host
         if self.user:
             user_host_arg = f"{self.user}@{self.host}"
-        fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}"]
-        py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", str(self.socket_path)])
+        fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
+        py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
         self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
 
     def start_remote_server(self):
         self.ssh_proc = subprocess.Popen(self.args)
         print(f"wait: {self.socket_path}")
-        while not os.path.exists(self.socket_path):
+        while not os.path.exists(self.socket_path) and not os.path.exists(self.sync_path):
             time.sleep(0.010)
-        time.sleep(1)
+        sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sync_sock.bind(str(self.sync_path))
+        sync_sock.listen(1)
+        conn, _ = sync_sock.accept()
+        sync_msg = conn.recv(4)
+        assert sync_msg == b"sync"
         print(f"connect: {self.socket_path}")
         self.rpyc = rpyc.utils.factory.unix_connect(str(self.socket_path))
-
 
     def close(self):
         self.ssh_proc.wait()
@@ -73,9 +84,9 @@ def run_build_server_remotely(host=None, user=None):
     print("after run")
 
 
-def run_build_server(socket_path):
-    print(f"serving on {socket_path}")
-    build_server = BuildServer(socket_path)
+def run_build_server(socket_path, sync_path):
+    print(f"serving on {socket_path} sync: {sync_path}")
+    build_server = BuildServer(socket_path, sync_path)
     print("build server started")
     build_server.join()
     print("build server joined")
