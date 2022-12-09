@@ -97,11 +97,12 @@ class RemoteContext:
             user_host_arg = f"{self.user}@{self.host}"
         fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
         py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
+        # py_cmd = "/usr/bin/env false"
         self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
 
     def start_remote_server(self):
         print(f"running: {' '.join(self.args)}")
-        self.ssh_proc = subprocess.Popen(self.args, stdout=sys.stdout, stderr=sys.stderr)
+        self.ssh_proc = subprocess.Popen(self.args)
         print(f"wait: {self.socket_path}")
         while not os.path.exists(self.socket_path) and not os.path.exists(self.sync_path):
             time.sleep(0.010)
@@ -122,6 +123,8 @@ class RemoteContext:
         self.conn.sendall(b"stop")
         sync_msg = self.conn.recv(4)
         assert sync_msg == b"dead"
+        self.conn.close()
+        self.sync_sock.close()
         print("close/ssh_proc wait")
         self.ssh_proc.wait()
         self.ssh_proc = None
