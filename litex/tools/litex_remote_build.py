@@ -25,6 +25,7 @@ def real_main():
         if args.sync_path is None:
             raise ValueError("--sync-path must be specified")
         run_build_server(args.sock_path, args.sync_path)
+        print("done running build server")
     elif args.remote_serve:
         run_build_server_remotely(args.host, user=args.user)
 

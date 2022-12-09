@@ -10,7 +10,7 @@ import syslog
 import rpyc
 from rpyc.core.service import ClassicService
 from rpyc.utils.server import ThreadPoolServer
-from rich import print
+# from rich import print
 
 orig_print = print
 def print(*args, **kwargs):
@@ -34,6 +34,10 @@ class BuildService(rpyc.Service):
 
     def on_disconnect(self, conn):
         print(f"BuildService disconnect {conn}")
+        # assert False == True
+        # os.kill(os.getpid())
+        # os._exit()
+        # exposed_close()
 
 class BuildServer:
     def __init__(self, socket_path: Path, sync_path: Path):
@@ -55,10 +59,15 @@ class BuildServer:
         print(f"BuildServer join()\n{self.srv_inst}")
         sync_msg = self.sync_sock.recv(4)
         assert sync_msg == b"stop"
+        print("sending dead")
         self.sync_sock.sendall(b"dead")
+        print("closing")
         self.sync_sock.close()
+        print("sock closed")
         self.srv.close()
+        print("srv closed")
         self.srv_inst.join()
+        print("srv thread joined")
         pass 
 
 def _getenv_checked(var):
@@ -89,29 +98,25 @@ class RemoteContext:
         fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
         py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
         self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
-        self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sync_sock.bind(str(self.sync_path))
-        self.sync_sock.listen(1)
-        self.conn, _ = self.sync_sock.accept()
 
     def start_remote_server(self):
+        print(f"running: {' '.join(self.args)}")
         self.ssh_proc = subprocess.Popen(self.args, stdout=sys.stdout, stderr=sys.stderr)
         print(f"wait: {self.socket_path}")
         while not os.path.exists(self.socket_path) and not os.path.exists(self.sync_path):
             time.sleep(0.010)
-        self._wait_for_sync()
+        self._wait_for_sync_start()
         print(f"connect: {self.socket_path}")
         self.rpyc = rpyc.utils.factory.unix_connect(str(self.socket_path))
 
     def _wait_for_sync_start(self):
-        sync_msg = self.conn.recv(4)
+        self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sync_sock.bind(str(self.sync_path))
+        self.sync_sock.listen(1)
+        self.conn, _ = self.sync_sock.accept()
+        sync_msg = self.conn.recv(5)
+        print(f"{socket.gethostname()} got {sync_msg}")
         assert sync_msg == b"start"
-
-    def _wait_for_sync_stop(self):
-        sync_msg = self.conn.recv(4)
-        assert sync_msg == b"dead"
-        self.conn.close()
-        self.sync_sock.close()
 
     def close(self):
         self.conn.sendall(b"stop")
@@ -126,10 +131,10 @@ def run_build_server_remotely(host=None, user=None):
     rc.start_remote_server()
     print(rc.rpyc)
     print(rc.rpyc.ping())
-    print("rpyc close")
-    print(rc.rpyc.root.close())
+    # print("rpyc close")
+    # print(rc.rpyc.root.close())
     print("local close 1")
-    rc.rpyc.close()
+    # rc.rpyc.close()
     print("local close 2")
     rc.close()
     print("after run")
