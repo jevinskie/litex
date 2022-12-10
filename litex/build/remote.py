@@ -107,12 +107,8 @@ def run_build_server_remotely(host=None, user=None):
     rc.close()
 
 def run_build_server(socket_path, sync_path):
-    print(f"serving on {socket_path} sync: {sync_path}")
+    print(f"LiteX build server serving on: {socket_path} sync: {sync_path}")
     build_server = BuildServer(socket_path, sync_path)
-    print("build server started")
-    time.sleep(2)
-    print("a...")
-    time.sleep(2)
-    print("b...")
+    print("LiteX build server started")
     build_server.serve_and_close()
-    print("build server closed")
+    print("LiteX build server closed")
