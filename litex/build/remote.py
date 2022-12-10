@@ -72,7 +72,7 @@ class RemoteContext:
         fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
         py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
         # use a login shell so we pick up any .profile type env-vars
-        self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
+        self.args = ["ssh", "-t", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
 
     def start_remote_server(self):
         self.ssh_proc = subprocess.Popen(self.args)
@@ -110,5 +110,9 @@ def run_build_server(socket_path, sync_path):
     print(f"serving on {socket_path} sync: {sync_path}")
     build_server = BuildServer(socket_path, sync_path)
     print("build server started")
+    time.sleep(2)
+    print("a...")
+    time.sleep(2)
+    print("b...")
     build_server.serve_and_close()
     print("build server closed")
