@@ -98,7 +98,7 @@ class RemoteContext:
         fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
         py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
         # py_cmd = "/usr/bin/env false"
-        self.args = ["ssh", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
+        self.args = ["ssh", "-vvv", "-t", *fwd_args, user_host_arg, "sh", "-x", "-l", "-c", f"'{py_cmd}; exit'"]
 
     def start_remote_server(self):
         print(f"running: {' '.join(self.args)}")
@@ -126,6 +126,7 @@ class RemoteContext:
         self.conn.close()
         self.sync_sock.close()
         print("close/ssh_proc wait")
+        self.rpyc.close()
         self.ssh_proc.wait()
         self.ssh_proc = None
 
