@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+
+#
+# This file is part of LiteX.
+#
+# Copyright (c) 2022 Jevin Sweval <jevinsweval@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
+
 import argparse
 
 from litex.build.remote import run_build_server, run_build_server_remotely

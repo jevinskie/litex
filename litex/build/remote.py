@@ -1,3 +1,9 @@
+#
+# This file is part of LiteX.
+#
+# Copyright (c) 2022 Jevin Sweval <jevinsweval@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
+
 import os
 import tempfile
 from pathlib import Path
@@ -8,13 +14,33 @@ import time
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
 
+# import syslog
+# orig_print = print
+# def print(*args, **kwargs):
+#     orig_print(*args, **kwargs)
+#     syslog.syslog(syslog.LOG_INFO, format(*args, **kwargs))
+
 class BuildService(rpyc.Service):
     exposed_platform = None
     exposed_soc = None
     exposed_ns = None
+    exposed_os = None
 
     def exposed_call_on_server(self, func):
         return func(self.exposed_platform, self.exposed_soc, self.exposed_ns)
+
+    def exposed_os_uname(self):
+        print(f"service uname: {self.exposed_os.uname()}")
+
+    def exposed_printfoo(self):
+        print(f"foo from: {socket.gethostname()}")
+
+    def exposed_htop(self, duration=5):
+        p = subprocess.Popen("htop")
+        try:
+            p.wait(timeout=duration)
+        except subprocess.TimeoutExpired:
+            p.terminate()
 
 class BuildServer:
     def __init__(self, socket_path: Path, sync_path: Path):
@@ -70,9 +96,9 @@ class RemoteContext:
         if self.user:
             user_host_arg = f"{self.user}@{self.host}"
         fwd_args = ["-L", f"{self.socket_path}:{self.socket_path}", "-R", f"{self.sync_path}:{self.sync_path}"]
-        py_cmd =  " ".join(["python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)])
+        py_cmd = ["/home/jevin/.pyenv/shims/python3", "-m", "litex.tools.litex_remote_build", "--serve", "--sock-path", str(self.socket_path), "--sync-path", str(self.sync_path)]
         # use a login shell so we pick up any .profile type env-vars
-        self.args = ["ssh", "-t", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{py_cmd}'"]
+        self.args = ["ssh", "-t", *fwd_args, user_host_arg, *py_cmd]
 
     def start_remote_server(self):
         self.ssh_proc = subprocess.Popen(self.args)
@@ -103,7 +129,8 @@ class RemoteContext:
 def run_build_server_remotely(host=None, user=None):
     rc = RemoteContext(host, user)
     rc.start_remote_server()
-    rc.rpyc_conn.ping()
+    rc.rpyc_conn.root.printfoo()
+    rc.rpyc_conn.root.htop()
     rc.close()
 
 def run_build_server(socket_path, sync_path):
