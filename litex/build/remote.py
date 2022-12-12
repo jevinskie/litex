@@ -4,21 +4,18 @@
 # Copyright (c) 2022 Jevin Sweval <jevinsweval@gmail.com>
 # SPDX-License-Identifier: BSD-2-Clause
 
+import fcntl
 import os
-import tempfile
-from pathlib import Path
 import socket
 import subprocess
+import sys
+import tempfile
+import termios
 import time
+from pathlib import Path
 
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
-
-# import syslog
-# orig_print = print
-# def print(*args, **kwargs):
-#     orig_print(*args, **kwargs)
-#     syslog.syslog(syslog.LOG_INFO, format(*args, **kwargs))
 
 class BuildService(rpyc.Service):
     exposed_platform = None
@@ -46,7 +43,7 @@ class BuildServer:
     def __init__(self, socket_path: Path, sync_path: Path):
         self.socket_path = socket_path
         self.sync_path = sync_path
-        self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path), protocol_config={"allow_all_attrs": True})
+        self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path), protocol_config={"allow_all_attrs": True, "allow_setattr": True})
         self.srv_thread = rpyc.lib.spawn(lambda: self.srv.start())
         self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sync_sock.connect(self.sync_path)
@@ -101,11 +98,17 @@ class RemoteContext:
         self.args = ["ssh", "-t", *fwd_args, user_host_arg, "sh", "-l", "-c", f"'{' '.join(py_cmd)}'"]
 
     def start_remote_server(self):
+        # ssh likes to ruin terminal settings when run in weird modes. Or I don't understand it.
+        term_attr = termios.tcgetattr(sys.stdin.fileno())
+        term_flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         self.ssh_proc = subprocess.Popen(self.args)
         # it can take some time for ssh to begin forwarding
         while not self.socket_path.exists() and not self.sync_path.exists():
             time.sleep(0.010)
         self._wait_for_sync_start()
+        # any terminal changes made by ssh should be done by here
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSAFLUSH, term_attr)
+        fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, term_flags)
         self.rpyc_conn = rpyc.utils.factory.unix_connect(str(self.socket_path))
 
     def _wait_for_sync_start(self):
@@ -129,8 +132,12 @@ class RemoteContext:
 def run_build_server_remotely(host=None, user=None):
     rc = RemoteContext(host, user)
     rc.start_remote_server()
-    rc.rpyc_conn.root.printfoo()
-    rc.rpyc_conn.root.htop()
+    print(vars(rc.rpyc_conn))
+    print(vars(rc.rpyc_conn.root))
+    # rc.rpyc_conn.root.os = os
+    # rc.rpyc_conn.root.printfoo()
+    # rc.rpyc_conn.root.htop()
+    # rc.rpyc_conn.root.os_uname()
     rc.close()
 
 def run_build_server(socket_path, sync_path):

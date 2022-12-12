@@ -7,6 +7,9 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 import argparse
+import fcntl
+import sys
+import termios
 
 from litex.build.remote import run_build_server, run_build_server_remotely
 
@@ -29,9 +32,19 @@ def main():
             raise ValueError("--sock-path must be specified")
         if args.sync_path is None:
             raise ValueError("--sync-path must be specified")
-        run_build_server(args.sock_path, args.sync_path)
+        term_attr = termios.tcgetattr(sys.stdin.fileno())
+        term_flags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+        try:
+            run_build_server(args.sock_path, args.sync_path)
+        except Exception as e:
+            print(f"run_build_server() failed:\n{e}")
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSAFLUSH, term_attr)
+        fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, term_flags)
     elif args.remote_serve:
-        run_build_server_remotely(args.host, user=args.user)
+        try:
+            run_build_server_remotely(args.host, user=args.user)
+        except Exception as e:
+            print(f"run_build_server_remotely() failed:\n{e}")
 
 if __name__ == "__main__":
     main()
