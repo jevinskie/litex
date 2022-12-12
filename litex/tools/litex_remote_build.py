@@ -13,6 +13,12 @@ import termios
 
 from litex.build.remote import run_build_server, run_build_server_remotely
 
+# Test Dummy ---------------------------------------------------------------------------------------
+import os
+from litex.build.remote import run_remote
+def _print_os_uname():
+    print(os.uname())
+
 # Run ----------------------------------------------------------------------------------------------
 
 def _get_args():

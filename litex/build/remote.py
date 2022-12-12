@@ -14,19 +14,21 @@ import termios
 import time
 from pathlib import Path
 
-import ipdb
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
-from rich import print, inspect
+from rich import print
 
 class BuildService(rpyc.Service):
     exposed_platform = None
     exposed_soc = None
     exposed_ns = None
     exposed_os = None
+    exposed__print_os_uname = None
 
     def on_connect(self, conn):
         self.os = os
+        from litex.tools.litex_remote_build import _print_os_uname as _posu
+        self._print_os_uname = _posu
 
     def exposed_call_on_server(self, func):
         return func(self.exposed_platform, self.exposed_soc, self.exposed_ns)
@@ -139,6 +141,7 @@ def run_build_server_remotely(host=None, user=None):
     rc.start_remote_server()
     # rc.rpyc_conn.root.os = os
     rc.rpyc_conn.root.os_uname()
+    rc.rpyc_conn.root._print_os_uname()
     rc.close()
 
 def run_build_server(socket_path, sync_path):
@@ -147,3 +150,7 @@ def run_build_server(socket_path, sync_path):
     print("LiteX build server started")
     build_server.serve_and_close()
     print("LiteX build server closed")
+
+def run_remote(rpyc_conn, *args):
+    rpyc_conn.root._print_os_uname
+    pass
