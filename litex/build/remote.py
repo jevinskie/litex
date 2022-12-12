@@ -14,8 +14,10 @@ import termios
 import time
 from pathlib import Path
 
+import ipdb
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
+from rich import print, inspect
 
 class BuildService(rpyc.Service):
     exposed_platform = None
@@ -23,11 +25,14 @@ class BuildService(rpyc.Service):
     exposed_ns = None
     exposed_os = None
 
+    def on_connect(self, conn):
+        self.os = os
+
     def exposed_call_on_server(self, func):
         return func(self.exposed_platform, self.exposed_soc, self.exposed_ns)
 
     def exposed_os_uname(self):
-        print(f"service uname: {self.exposed_os.uname()}")
+        print(f"service uname: {self.os.uname()}")
 
     def exposed_printfoo(self):
         print(f"foo from: {socket.gethostname()}")
@@ -109,7 +114,7 @@ class RemoteContext:
         # any terminal changes made by ssh should be done by here
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSAFLUSH, term_attr)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, term_flags)
-        self.rpyc_conn = rpyc.utils.factory.unix_connect(str(self.socket_path))
+        self.rpyc_conn = rpyc.utils.factory.unix_connect(str(self.socket_path), config={"allow_all_attrs": True, "allow_setattr": True})
 
     def _wait_for_sync_start(self):
         self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -132,12 +137,8 @@ class RemoteContext:
 def run_build_server_remotely(host=None, user=None):
     rc = RemoteContext(host, user)
     rc.start_remote_server()
-    print(vars(rc.rpyc_conn))
-    print(vars(rc.rpyc_conn.root))
     # rc.rpyc_conn.root.os = os
-    # rc.rpyc_conn.root.printfoo()
-    # rc.rpyc_conn.root.htop()
-    # rc.rpyc_conn.root.os_uname()
+    rc.rpyc_conn.root.os_uname()
     rc.close()
 
 def run_build_server(socket_path, sync_path):
