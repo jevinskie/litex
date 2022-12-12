@@ -18,39 +18,23 @@ import rpyc
 from rpyc.utils.server import ThreadPoolServer
 from rich import print
 
-class BuildService(rpyc.Service):
-    exposed_platform = None
-    exposed_soc = None
-    exposed_ns = None
-    exposed_os = None
-    exposed__print_os_uname = None
+class BuildService(rpyc.SlaveService):
+    class Modules:
+        def __init__(self, svc):
+            self.svc = svc
+
+        def __getitem__(self, mod):
+            return self.svc.getmodule(mod)
 
     def on_connect(self, conn):
-        self.os = os
-        from litex.tools.litex_remote_build import _print_os_uname as _posu
-        self._print_os_uname = _posu
-
-    def exposed_call_on_server(self, func):
-        return func(self.exposed_platform, self.exposed_soc, self.exposed_ns)
-
-    def exposed_os_uname(self):
-        print(f"service uname: {self.os.uname()}")
-
-    def exposed_printfoo(self):
-        print(f"foo from: {socket.gethostname()}")
-
-    def exposed_htop(self, duration=5):
-        p = subprocess.Popen("htop")
-        try:
-            p.wait(timeout=duration)
-        except subprocess.TimeoutExpired:
-            p.terminate()
+        super().on_connect(conn)
+        self.modules = BuildService.Modules(self)
 
 class BuildServer:
     def __init__(self, socket_path: Path, sync_path: Path):
         self.socket_path = socket_path
         self.sync_path = sync_path
-        self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path), protocol_config={"allow_all_attrs": True, "allow_setattr": True})
+        self.srv = ThreadPoolServer(BuildService, socket_path=str(socket_path))
         self.srv_thread = rpyc.lib.spawn(lambda: self.srv.start())
         self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sync_sock.connect(self.sync_path)
@@ -116,7 +100,7 @@ class RemoteContext:
         # any terminal changes made by ssh should be done by here
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSAFLUSH, term_attr)
         fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, term_flags)
-        self.rpyc_conn = rpyc.utils.factory.unix_connect(str(self.socket_path), config={"allow_all_attrs": True, "allow_setattr": True})
+        self.rpyc_conn = rpyc.utils.factory.unix_connect(str(self.socket_path))
 
     def _wait_for_sync_start(self):
         self.sync_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -139,9 +123,10 @@ class RemoteContext:
 def run_build_server_remotely(host=None, user=None):
     rc = RemoteContext(host, user)
     rc.start_remote_server()
-    # rc.rpyc_conn.root.os = os
-    rc.rpyc_conn.root.os_uname()
-    rc.rpyc_conn.root._print_os_uname()
+    print(rc.rpyc_conn.root.getmodule("os").uname())
+    print(rc.rpyc_conn.root.modules["os"].uname())
+    from litex.tools.litex_remote_build import _print_os_uname as _posu
+    _posu()
     rc.close()
 
 def run_build_server(socket_path, sync_path):
@@ -151,6 +136,5 @@ def run_build_server(socket_path, sync_path):
     build_server.serve_and_close()
     print("LiteX build server closed")
 
-def run_remote(rpyc_conn, *args):
-    rpyc_conn.root._print_os_uname
+def run_remote(rpyc_conn, **kwargs):
     pass
