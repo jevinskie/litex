@@ -57,13 +57,10 @@ class BuildServerConnection(rpyc.Connection):
 
     def __new__(cls):
         if cls._instance is None:
-            print("conn super __new__ prime")
             cls._instance = super().__new__(cls)
-        print("conn __new__ cached")
         return cls._instance
 
     def __init__(self, root, channel, *args, **kwargs):
-        print("conn __init__")
         super().__init__(root, channel, *args, **kwargs)
 
     @classmethod
@@ -158,17 +155,12 @@ def run_build_server(socket_path, sync_path):
 
 def run_remote(*overrides):
     def decorator_run_remote(func):
-        print("decorator_run_remote")
         @functools.wraps(func)
         def wrapper_run_remote(*args, **kwargs):
             if not getattr(func, "_litex_remote_build_processed", None):
                 for symbol in overrides:
-                    print(f"patching {symbol}")
                     func.__globals__[symbol] = BuildServerConnection().root.modules[symbol]
                 setattr(func, '_litex_remote_build_processed', True)
-            print(f"singleton: {BuildServerConnection()}")
-            print("wrapper_run_remote")
-            print(f"overrides: {overrides}")
             return func(*args, **kwargs)
         return wrapper_run_remote
     return decorator_run_remote
