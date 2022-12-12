@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 import fcntl
+import functools
 import os
 import socket
 import subprocess
@@ -15,8 +16,8 @@ import time
 from pathlib import Path
 
 import rpyc
-from rpyc.utils.server import ThreadPoolServer
 from rich import print
+from rpyc.utils.server import ThreadPoolServer
 
 class BuildService(rpyc.SlaveService):
     class Modules:
@@ -50,6 +51,24 @@ class BuildServer:
         self.sync_sock.close()
         self.srv.close()
         self.srv_thread.join()
+
+class BuildServerConnection(rpyc.Connection):
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            print("conn super __new__ prime")
+            cls._instance = super().__new__(cls)
+        print("conn __new__ cached")
+        return cls._instance
+
+    def __init__(self, root, channel, *args, **kwargs):
+        print("conn __init__")
+        super().__init__(root, channel, *args, **kwargs)
+
+    @classmethod
+    def set_instance(cls, obj):
+        cls._instance = obj
 
 def _getenv_checked(var):
     val = os.getenv(var)
@@ -123,6 +142,7 @@ class RemoteContext:
 def run_build_server_remotely(host=None, user=None):
     rc = RemoteContext(host, user)
     rc.start_remote_server()
+    BuildServerConnection.set_instance(rc.rpyc_conn)
     print(rc.rpyc_conn.root.getmodule("os").uname())
     print(rc.rpyc_conn.root.modules["os"].uname())
     from litex.tools.litex_remote_build import _print_os_uname as _posu
@@ -136,5 +156,19 @@ def run_build_server(socket_path, sync_path):
     build_server.serve_and_close()
     print("LiteX build server closed")
 
-def run_remote(rpyc_conn, **kwargs):
-    pass
+def run_remote(*overrides):
+    def decorator_run_remote(func):
+        print("decorator_run_remote")
+        @functools.wraps(func)
+        def wrapper_run_remote(*args, **kwargs):
+            if not getattr(func, "_litex_remote_build_processed", None):
+                for symbol in overrides:
+                    print(f"patching {symbol}")
+                    func.__globals__[symbol] = BuildServerConnection().root.modules[symbol]
+                setattr(func, '_litex_remote_build_processed', True)
+            print(f"singleton: {BuildServerConnection()}")
+            print("wrapper_run_remote")
+            print(f"overrides: {overrides}")
+            return func(*args, **kwargs)
+        return wrapper_run_remote
+    return decorator_run_remote

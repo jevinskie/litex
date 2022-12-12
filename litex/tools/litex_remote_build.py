@@ -16,7 +16,7 @@ from litex.build.remote import run_build_server, run_build_server_remotely
 # Test Dummy ---------------------------------------------------------------------------------------
 import os
 from litex.build.remote import run_remote
-# @run_remote()
+@run_remote("os")
 def _print_os_uname():
     print(os.uname())
 
