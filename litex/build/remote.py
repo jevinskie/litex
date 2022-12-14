@@ -14,6 +14,7 @@ import tempfile
 import termios
 import time
 from pathlib import Path
+from types import ModuleType
 
 import rpyc
 from rich import print
@@ -26,6 +27,9 @@ class BuildService(rpyc.SlaveService):
 
         def __getitem__(self, mod):
             return self.svc.getmodule(mod)
+
+    def globals(self):
+        return globals()
 
     def on_connect(self, conn):
         super().on_connect(conn)
@@ -142,6 +146,7 @@ def run_build_server_remotely(host=None, user=None):
     BuildServerConnection.set_instance(rc.rpyc_conn)
     print(rc.rpyc_conn.root.getmodule("os").uname())
     print(rc.rpyc_conn.root.modules["os"].uname())
+    # print(rc.rpyc_conn.root.globals())
     from litex.tools.litex_remote_build import _print_os_uname as _posu
     _posu()
     rc.close()
@@ -158,8 +163,9 @@ def run_remote(*overrides):
         @functools.wraps(func)
         def wrapper_run_remote(*args, **kwargs):
             if not getattr(func, "_litex_remote_build_processed", None):
+                rpyc_conn = BuildServerConnection()
                 for symbol in overrides:
-                    func.__globals__[symbol] = BuildServerConnection().root.modules[symbol]
+                    func.__globals__[symbol] = rpyc_conn.root.eval(symbol)
                 setattr(func, '_litex_remote_build_processed', True)
             return func(*args, **kwargs)
         return wrapper_run_remote
