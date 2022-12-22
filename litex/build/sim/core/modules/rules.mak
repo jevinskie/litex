@@ -1,4 +1,5 @@
 CC ?= gcc
+OPT_LEVEL ?= O3
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
 
@@ -11,9 +12,9 @@ ifeq ($(UNAME_S),Darwin)
 		LDFLAGS += -L/opt/homebrew/lib
 	endif
 	LDFLAGS += -ljson-c
-	CFLAGS += -Wall -O3 -ggdb -fPIC
+	CFLAGS += -Wall -$(OPT_LEVEL) -ggdb -fPIC
 else
-	CFLAGS += -Wall -O3 -ggdb -fPIC -Werror
+	CFLAGS += -Wall -$(OPT_LEVEL) -ggdb -fPIC -Werror
 endif
 LDFLAGS += -levent -shared -fPIC
 

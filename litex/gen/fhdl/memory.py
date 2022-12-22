@@ -5,6 +5,8 @@
 # This file is Copyright (c) 2021 Florent Kermarrec <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
 
+from pathlib import Path
+
 from migen.fhdl.structure import *
 from migen.fhdl.module import *
 from migen.fhdl.bitcontainer import bits_for
@@ -77,7 +79,8 @@ def memory_emit_verilog(name, memory, namespace, add_data_file):
         formatter = f"{{:0{int(memory.width/4)}x}}\n"
         for d in memory.init:
             content += formatter.format(d)
-        memory_filename = add_data_file(f"{name}_{_get_name(memory)}.init", content)
+        memory_filename = Path(add_data_file(f"{name}_{_get_name(memory)}.init", content))
+        memory_filename = Path().cwd() / memory_filename
 
         r += "initial begin\n"
         r += f"\t$readmemh(\"{memory_filename}\", {_get_name(memory)});\n"
