@@ -36,6 +36,9 @@ else
 	$(CC) $(LDFLAGS) -Wl,-soname,$@ -o $@ $<
 endif
 
+# keep .o files around so debug info works on macOS
+.PRECIOUS: %.o
+
 .PHONY: clean
 clean:
 	rm -f *.o *.so
