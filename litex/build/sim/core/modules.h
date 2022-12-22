@@ -3,6 +3,10 @@
 #ifndef __MODULE_H_
 #define __MODULE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "pads.h"
@@ -45,13 +49,7 @@ typedef struct clk_edge_state {
   int last_clk;
 } clk_edge_state_t;
 
-#ifdef __cplusplus
-extern "C"
-#endif
 char *litex_sim_append_to_path(const char *path, const char *part);
-#ifdef __cplusplus
-extern "C"
-#endif
 char *litex_sim_get_gateware_dir(void);
 int litex_sim_file_parse(char *filename, struct module_s **mod, uint64_t *timebase);
 int litex_sim_load_ext_modules(struct ext_module_list_s **mlist);
@@ -79,5 +77,9 @@ static inline clk_edge_t clk_edge(clk_edge_state_t *edge_state, int new_clk) {
   edge_state->last_clk = new_clk;
   return edge;
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif
