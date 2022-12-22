@@ -8,9 +8,6 @@
 # Copyright (c) 2017 Pierre-Olivier Vauboin <po@lambdaconcept>
 # SPDX-License-Identifier: BSD-2-Clause
 
-import sys
-import argparse
-
 from migen import *
 
 from litex.build.generic_platform import *
@@ -27,7 +24,7 @@ from litex.soc.cores.cpu import CPUS
 
 from litedram import modules as litedram_modules
 from litedram.modules import parse_spd_hexdump
-from litedram.phy.model import sdram_module_nphases, get_sdram_phy_settings
+from litedram.phy.model import sdram_module_nphases
 from litedram.phy.model import SDRAMPHYModel
 
 from liteeth.phy.gmii import LiteEthPHYGMII
@@ -38,7 +35,7 @@ from liteeth.core.arp import LiteEthARP
 from liteeth.core.ip import LiteEthIP
 from liteeth.core.udp import LiteEthUDP
 from liteeth.core.icmp import LiteEthICMP
-from liteeth.core import LiteEthUDPIPCore
+from litex.soc.cores.uart import RS232PHYModel, UARTBone
 from liteeth.frontend.etherbone import LiteEthEtherbone
 from liteeth.common import *
 
@@ -61,6 +58,18 @@ _io = [
         Subsignal("sink_ready",   Pins(1)),
         Subsignal("sink_data",    Pins(8)),
     ),
+
+    # UARTbone over TCP.
+    ("uartbone", 0,
+        Subsignal("source_valid", Pins(1)),
+        Subsignal("source_ready", Pins(1)),
+        Subsignal("source_data",  Pins(8)),
+
+        Subsignal("sink_valid",   Pins(1)),
+        Subsignal("sink_ready",   Pins(1)),
+        Subsignal("sink_data",    Pins(8)),
+    ),
+
 
     # Ethernet (Stream Endpoint).
     ("eth_clocks", 0,
@@ -143,6 +152,7 @@ class SimSoC(SoCCore):
         with_etherbone        = False,
         etherbone_mac_address = 0x10e2d5000001,
         etherbone_ip_address  = "192.168.1.51",
+        with_uartbone         = False,
         with_analyzer         = False,
         sdram_module          = "MT48LC16M16",
         sdram_init            = [],
@@ -263,6 +273,12 @@ class SimSoC(SoCCore):
                 mac_address = etherbone_mac_address
             )
 
+        # UARTbone over TCP
+        if with_uartbone:
+            self.submodules.uartbone_phy = RS232PHYModel(platform.request("uartbone"))
+            self.submodules.uartbone = UARTBone(phy=self.uartbone_phy, clk_freq=sys_clk_freq)
+            self.bus.add_master(name="uartbone", master=self.uartbone.wishbone)
+
         # I2C --------------------------------------------------------------------------------------
         if with_i2c:
             pads = platform.request("i2c", 0)
@@ -381,6 +397,9 @@ def sim_args(parser):
     parser.add_argument("--local-ip",             default="192.168.1.50",  help="Local IP address of SoC.")
     parser.add_argument("--remote-ip",            default="192.168.1.100", help="Remote IP address of TFTP server.")
 
+    # UARTbone over TCP
+    parser.add_argument("--with-uartbone",        action="store_true",     help="Enable UARTbone over TCP support.")
+
     # SDCard.
     parser.add_argument("--with-sdcard",          action="store_true",     help="Enable SDCard support.")
 
@@ -421,6 +440,10 @@ def main():
     if soc_kwargs["uart_name"] == "serial":
         soc_kwargs["uart_name"] = "sim"
         sim_config.add_module("serial2console", "serial")
+
+    # UARTbone over TCP.
+    if args.with_uartbone:
+        sim_config.add_module("serial2tcp", "uartbone", args={"port": 2430})
 
     # Create config SoC that will be used to prepare/configure real one.
     conf_soc = SimSoC(**soc_kwargs)
@@ -479,6 +502,7 @@ def main():
         with_ethernet      = args.with_ethernet,
         ethernet_phy_model = args.ethernet_phy_model,
         with_etherbone     = args.with_etherbone,
+        with_uartbone      = args.with_uartbone,
         with_analyzer      = args.with_analyzer,
         with_i2c           = args.with_i2c,
         with_sdcard        = args.with_sdcard,

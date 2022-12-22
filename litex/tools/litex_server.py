@@ -188,6 +188,11 @@ def main():
     parser.add_argument("--uart-port",       default=None,           help="Set UART port.")
     parser.add_argument("--uart-baudrate",   default=115200,         help="Set UART baudrate.")
 
+    # Sim UARTbone over TCP arguments
+    parser.add_argument("--sim-tcp",         action="store_true",    help="Select simulator UARTbone TCP interface.")
+    parser.add_argument("--sim-tcp-host",    default="localhost",    help="Set simulator UARTbone TCP hostname.")
+    parser.add_argument("--sim-tcp-port",    default=2430,           help="Set simulator UARTbone TCP port.")
+
     # JTAG arguments
     parser.add_argument("--jtag",            action="store_true",             help="Select JTAG interface.")
     parser.add_argument("--jtag-config",     default="openocd_xc7_ft232.cfg", help="OpenOCD JTAG configuration file.")
@@ -221,6 +226,12 @@ def main():
         uart_baudrate = int(float(args.uart_baudrate))
         print("[CommUART] port: {} / baudrate: {} / ".format(uart_port, uart_baudrate), end="")
         comm = CommUART(uart_port, uart_baudrate, debug=args.debug)
+
+    # TCP mode
+    elif args.sim_tcp:
+        from litex.tools.remote.comm_uart import CommUARTTCP
+        print(f"[CommUARTTCP] hostname: {args.sim_tcp_host} / port: {args.sim_tcp_port} / ", end="")
+        comm = CommUARTTCP(args.sim_tcp_host, args.sim_tcp_port, debug=args.debug)
 
     # JTAG mode
     elif args.jtag:
