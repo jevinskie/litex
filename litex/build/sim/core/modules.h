@@ -45,7 +45,13 @@ typedef struct clk_edge_state {
   int last_clk;
 } clk_edge_state_t;
 
+#ifdef __cplusplus
+extern "C"
+#endif
 char *litex_sim_append_to_path(const char *path, const char *part);
+#ifdef __cplusplus
+extern "C"
+#endif
 char *litex_sim_get_gateware_dir(void);
 int litex_sim_file_parse(char *filename, struct module_s **mod, uint64_t *timebase);
 int litex_sim_load_ext_modules(struct ext_module_list_s **mlist);

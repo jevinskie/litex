@@ -1,10 +1,12 @@
 /* Copyright (C) 2017 LambdaConcept */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include "Vsim.h"
+#include "modules.h"
 #include "verilated.h"
 #ifdef TRACE_FST
 #include "verilated_fst_c.h"
@@ -40,14 +42,25 @@ extern "C" void litex_sim_init_tracer(void *vsim, long start, long end)
   tfp_start = start;
   tfp_end = end >= 0 ? end : UINT64_MAX;
   Verilated::traceEverOn(true);
+  char *gw_dir = litex_sim_get_gateware_dir();
+  assert(gw_dir);
+  char *trace_path = litex_sim_append_to_path(gw_dir,
 #ifdef TRACE_FST
+    "sim.fst"
+#else
+    "sim.vcd"
+#endif
+  );
+  assert(trace_path);
+#ifdef TRACE_FST
+  char *trace_path = litex_sim_get_gateware_dir
       tfp = new VerilatedFstC;
       sim->trace(tfp, 99);
-      tfp->open("sim.fst");
+      tfp->open(trace_path);
 #else
       tfp = new VerilatedVcdC;
       sim->trace(tfp, 99);
-      tfp->open("sim.vcd");
+      tfp->open(trace_path);
 #endif
   tfp->set_time_unit("1ps");
   tfp->set_time_resolution("1ps");
