@@ -24,18 +24,35 @@ static int file_to_js(char *filename, json_object **obj)
     goto out;
   }
 
-  in = fopen(filename, "r");
-  if(!in)
-  {
-    eprintf("Can't open configuration file: %s\n", filename);
-    ret= RC_ERROR;
+  char *gw_dir = litex_sim_get_gateware_dir();
+  if (!gw_dir) {
+    eprintf("Can't find gateware directory\n");
+    ret = RC_ERROR;
     goto out;
   }
+  char *file_full_path = litex_sim_append_to_path(gw_dir, filename);
+  if (!file_full_path) {
+    eprintf("Can't append '%s' and '%s'\n", gw_dir, filename);
+    free(gw_dir);
+    ret = RC_ERROR;
+    goto out;
+  }
+  free(gw_dir);
+
+  in = fopen(file_full_path, "r");
+  if(!in)
+  {
+    eprintf("Can't open configuration file: %s\n", file_full_path);
+    free(file_full_path);
+    ret = RC_ERROR;
+    goto out;
+  }
+  free(file_full_path);
 
   tok = json_tokener_new();
   if(!tok)
   {
-    ret=RC_ERROR;
+    ret = RC_ERROR;
     eprintf("Can't create new tokener\n");
     goto out;
   }
