@@ -207,6 +207,7 @@ static int serial2tcp_add_pads(void *sess, struct pad_list_s *plist) {
         goto out;
     }
     pads = plist->pads;
+    fprintf(stderr, "plist name: %s\n", plist->name);
     if (!strcmp(plist->name, "serial2tcp")) {
         litex_sim_module_pads_get(pads, "sink_data", (void **)&s->rx);
         litex_sim_module_pads_get(pads, "sink_valid", (void **)&s->rx_valid);
@@ -228,8 +229,6 @@ static int serial2tcp_tick(void *sess, uint64_t time_ps) {
     char c;
     int ret = RC_OK;
 
-    fprintf(stderr, "serial2tcp tick time: %" PRIu64 "\n", time_ps);
-
     struct session_s *s = (struct session_s *)sess;
     if (!clk_pos_edge(&edge, *s->sys_clk)) {
         return RC_OK;
@@ -238,7 +237,6 @@ static int serial2tcp_tick(void *sess, uint64_t time_ps) {
     *s->tx_ready = 1;
     if (s->fd && *s->tx_valid) {
         c = *s->tx;
-        printf("serial2tcp write 0x%02x\n", (uint8_t)c);
         if (-1 == write(s->fd, &c, 1)) {
             eprintf("Error writing on socket\n");
             ret = RC_ERROR;

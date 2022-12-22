@@ -60,7 +60,7 @@ _io = [
     ),
 
     # UARTbone over TCP.
-    ("uartbone", 0,
+    ("serial2tcp", 0,
         Subsignal("source_valid", Pins(1)),
         Subsignal("source_ready", Pins(1)),
         Subsignal("source_data",  Pins(8)),
@@ -275,7 +275,7 @@ class SimSoC(SoCCore):
 
         # UARTbone over TCP
         if with_uartbone:
-            self.submodules.uartbone_phy = RS232PHYModel(platform.request("uartbone"))
+            self.submodules.uartbone_phy = RS232PHYModel(platform.request("serial2tcp"))
             self.submodules.uartbone = UARTBone(phy=self.uartbone_phy, clk_freq=sys_clk_freq)
             self.bus.add_master(name="uartbone", master=self.uartbone.wishbone)
 
@@ -443,7 +443,7 @@ def main():
 
     # UARTbone over TCP.
     if args.with_uartbone:
-        sim_config.add_module("serial2tcp", "uartbone", args={"port": 2430})
+        sim_config.add_module("serial2tcp", "serial2tcp", args={"port": 2430})
 
     # Create config SoC that will be used to prepare/configure real one.
     conf_soc = SimSoC(**soc_kwargs)
