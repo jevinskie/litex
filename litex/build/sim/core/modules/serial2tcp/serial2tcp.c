@@ -201,7 +201,6 @@ static int serial2tcp_add_pads(void *sess, struct pad_list_s *plist, const char 
     int clk_good        = 0;
     struct session_s *s = (struct session_s *)sess;
     struct pad_s *pads;
-    eprintf("serial2tcp_add_pads begin iface_name: %s\n", iface_name);
     if (!sess || !plist) {
         return RC_INVARG;
     }
@@ -224,7 +223,6 @@ static int serial2tcp_add_pads(void *sess, struct pad_list_s *plist, const char 
         return sigs_good ? RC_OK : RC_ERROR;
     }
 
-    eprintf("got to end of serial2tcp_add_pads iface_name: %s\n", iface_name);
     return RC_ERROR;
 }
 

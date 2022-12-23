@@ -81,10 +81,8 @@ static int litex_sim_initialize_all(void **sim, void *base)
 
   for(mli = ml; mli; mli=mli->next)
   {
-
     /* Find the module in the external module */
     pmlist = NULL;
-    fprintf(stderr, "looking at %s\n", mli->name);
     ret = litex_sim_find_ext_module(mlist, mli->name, &pmlist);
     if(RC_OK != ret)
     {
@@ -114,12 +112,9 @@ static int litex_sim_initialize_all(void **sim, void *base)
     }
     sesslist = slist;
 
-    fprintf(stderr, "looking at module: %s iface #: %d\n", mli->name, mli->niface);
-
     /* For each interface */
     for(i = 0; i < mli->niface + 1; i++)
     {
-      fprintf(stderr, "looking at module: %s iface: %s %d %d\n", mli->name, mli->iface[i].name, i, mli->iface[i].index);
       /* Find the pads */
       pplist = NULL;
       ret = litex_sim_pads_find(plist, mli->iface[i].name, mli->iface[i].index, &pplist);
@@ -133,7 +128,6 @@ static int litex_sim_initialize_all(void **sim, void *base)
         eprintf("Could not find interface %s with index %d\n", mli->iface[i].name, mli->iface[i].index);
         continue;
       }
-      eprintf("Adding pads for %s %s %d %d\n", mli->name, mli->iface[i].name, i, mli->iface[i].index);
       ret = pmlist->module->add_pads(slist->session, pplist, mli->iface[i].name);
       if(RC_OK != ret)
       {
