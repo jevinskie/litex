@@ -71,28 +71,26 @@ out:
     return ret;
 }
 
+#define litex_sim_module_pads_get_checked(good, pads, name, signal)                                \
+    do {                                                                                           \
+        int found = litex_sim_module_pads_get(pads, name, (void **)&signal) == RC_OK;              \
+        if (!found) {                                                                              \
+            eprintf("Couldn't find pad named '%s'\n", name);                                       \
+        }                                                                                          \
+        good &= found;                                                                             \
+    } while (0)
+
 static int litex_sim_module_pads_get(struct pad_s *pads, char *name, void **signal) {
-    int ret   = RC_OK;
-    void *sig = NULL;
-    int i;
-
     if (!pads || !name || !signal) {
-        ret = RC_INVARG;
-        goto out;
+        return RC_INVARG;
     }
-
-    i = 0;
-    while (pads[i].name) {
+    for (int i = 0; pads[i].name; ++i) {
         if (!strcmp(pads[i].name, name)) {
-            sig = (void *)pads[i].signal;
-            break;
+            *signal = (void *)pads[i].signal;
+            return RC_OK;
         }
-        i++;
     }
-
-out:
-    *signal = sig;
-    return ret;
+    return RC_ERROR;
 }
 
 static int serial2tcp_start(void *b) {
@@ -198,30 +196,36 @@ out:
     return ret;
 }
 
-static int serial2tcp_add_pads(void *sess, struct pad_list_s *plist) {
-    int ret             = RC_OK;
+static int serial2tcp_add_pads(void *sess, struct pad_list_s *plist, const char *iface_name) {
+    int sigs_good       = 0;
+    int clk_good        = 0;
     struct session_s *s = (struct session_s *)sess;
     struct pad_s *pads;
+    eprintf("serial2tcp_add_pads begin iface_name: %s\n", iface_name);
     if (!sess || !plist) {
-        ret = RC_INVARG;
-        goto out;
+        return RC_INVARG;
     }
     pads = plist->pads;
-    fprintf(stderr, "plist name: %s\n", plist->name);
-    if (!strcmp(plist->name, "serial2tcp")) {
-        litex_sim_module_pads_get(pads, "sink_data", (void **)&s->rx);
-        litex_sim_module_pads_get(pads, "sink_valid", (void **)&s->rx_valid);
-        litex_sim_module_pads_get(pads, "sink_ready", (void **)&s->rx_ready);
-        litex_sim_module_pads_get(pads, "source_data", (void **)&s->tx);
-        litex_sim_module_pads_get(pads, "source_valid", (void **)&s->tx_valid);
-        litex_sim_module_pads_get(pads, "source_ready", (void **)&s->tx_ready);
+
+    if (!strcmp(plist->name, "sys_clk")) {
+        clk_good = 1;
+        litex_sim_module_pads_get_checked(clk_good, pads, "sys_clk", s->sys_clk);
+        return clk_good ? RC_OK : RC_ERROR;
     }
 
-    if (!strcmp(plist->name, "sys_clk"))
-        litex_sim_module_pads_get(pads, "sys_clk", (void **)&s->sys_clk);
+    if (!strcmp(plist->name, iface_name)) {
+        sigs_good = 1;
+        litex_sim_module_pads_get_checked(sigs_good, pads, "sink_data", s->rx);
+        litex_sim_module_pads_get_checked(sigs_good, pads, "sink_valid", s->rx_valid);
+        litex_sim_module_pads_get_checked(sigs_good, pads, "sink_ready", s->rx_ready);
+        litex_sim_module_pads_get_checked(sigs_good, pads, "source_data", s->tx);
+        litex_sim_module_pads_get_checked(sigs_good, pads, "source_valid", s->tx_valid);
+        litex_sim_module_pads_get_checked(sigs_good, pads, "source_ready", s->tx_ready);
+        return sigs_good ? RC_OK : RC_ERROR;
+    }
 
-out:
-    return ret;
+    eprintf("got to end of serial2tcp_add_pads iface_name: %s\n", iface_name);
+    return RC_ERROR;
 }
 
 static int serial2tcp_tick(void *sess, uint64_t time_ps) {

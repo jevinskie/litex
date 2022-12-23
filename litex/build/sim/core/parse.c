@@ -150,20 +150,20 @@ static int json_to_interface_list(json_object *interface, struct interface_s **i
     {
       if(!json_object_object_get_ex(obj, "name", &name))
       {
-	ret=RC_JSERROR;
-	eprintf("Module interface must have a name (%s)!\n", json_object_to_json_string(obj));
-	goto out;
+        ret=RC_JSERROR;
+        eprintf("Module interface must have a name (%s)!\n", json_object_to_json_string(obj));
+        goto out;
       }
       t_iface[i].name = strdup(json_object_get_string(name));
 
       if(json_object_object_get_ex(obj, "index", &index))
       {
-	if(!json_object_is_type(index, json_type_int))
-	{
-	  ret = RC_JSERROR;
-	  eprintf("Interface Index must be an int ! (%s)\n", json_object_to_json_string(obj));
-	}
-	t_iface[i].index = json_object_get_int(index);
+        if(!json_object_is_type(index, json_type_int))
+        {
+          ret = RC_JSERROR;
+          eprintf("Interface Index must be an int ! (%s)\n", json_object_to_json_string(obj));
+        }
+        t_iface[i].index = json_object_get_int(index);
       }
     }
     if(json_object_is_type(obj, json_type_string))
@@ -193,19 +193,19 @@ static int module_list_free(struct module_s *mod)
     {
       for(i = 0; i < mod->niface; i++)
       {
-	if(mod->iface[i].name)
-	{
-	  free(mod->iface[i].name);
-	}
+        if(mod->iface[i].name)
+        {
+          free(mod->iface[i].name);
+        }
       }
       free(mod->iface);
       if(mod->name)
       {
-	free(mod->name);
+	      free(mod->name);
       }
       if(mod->args)
       {
-	free(mod->args);
+	      free(mod->args);
       }
     }
     free(mod);
@@ -292,7 +292,9 @@ static int json_to_module_list(json_object *obj, struct module_s **mod)
     }
     len = 0;
 
-    while(m->iface[len++].name);
+    while(m->iface[len].name) {
+      ++len;
+    }
     m->niface= len-1;
     m->name = strdup(json_object_get_string(name));
     if(args)
@@ -307,9 +309,9 @@ static int json_to_module_list(json_object *obj, struct module_s **mod)
 
   if (!m)
   {
-      ret = RC_JSERROR;
-      eprintf("No modules found in config file:\n%s\n", json_object_to_json_string(obj));
-      goto out;
+    ret = RC_JSERROR;
+    eprintf("No modules found in config file:\n%s\n", json_object_to_json_string(obj));
+    goto out;
   }
 
   *mod = first;

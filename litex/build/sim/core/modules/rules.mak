@@ -11,12 +11,9 @@ ifeq ($(UNAME_S),Darwin)
 		CFLAGS += -I/opt/homebrew/include
 		LDFLAGS += -L/opt/homebrew/lib
 	endif
-	LDFLAGS += -ljson-c
-	CFLAGS += -Wall -$(OPT_LEVEL) -ggdb -fPIC
-else
-	CFLAGS += -Wall -$(OPT_LEVEL) -ggdb -fPIC -Werror
 endif
-LDFLAGS += -levent -shared -fPIC
+CFLAGS += -Wall -$(OPT_LEVEL) -ggdb3 -fPIC -Werror
+LDFLAGS += -ljson-c -levent -shared -fPIC
 
 MOD_SRC_DIR=$(SRC_DIR)/modules/$(MOD)
 EXTRA_MOD_SRC_DIR=$(EXTRA_MOD_BASE_DIR)/$(MOD)
@@ -36,9 +33,9 @@ else
 	$(CC) $(LDFLAGS) -Wl,-soname,$@ -o $@ $<
 endif
 
-# keep .o files around so debug info works on macOS
-.PRECIOUS: %.o
-
 .PHONY: clean
 clean:
 	rm -f *.o *.so
+
+# keep .o files around so debug info works on macOS
+.PRECIOUS: %.o

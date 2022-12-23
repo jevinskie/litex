@@ -42,7 +42,6 @@ static int litex_sim_initialize_all(void **sim, void *base)
   struct module_s *mli=NULL;
   struct ext_module_list_s *mlist=NULL;
   struct ext_module_list_s *pmlist=NULL;
-  //struct ext_module_list_s *mlisti=NULL;
   struct pad_list_s *plist=NULL;
   struct pad_list_s *pplist=NULL;
   struct session_list_s *slist=NULL;
@@ -85,7 +84,8 @@ static int litex_sim_initialize_all(void **sim, void *base)
 
     /* Find the module in the external module */
     pmlist = NULL;
-    ret = litex_sim_find_ext_module(mlist, mli->name, &pmlist );
+    fprintf(stderr, "looking at %s\n", mli->name);
+    ret = litex_sim_find_ext_module(mlist, mli->name, &pmlist);
     if(RC_OK != ret)
     {
       goto out;
@@ -96,7 +96,7 @@ static int litex_sim_initialize_all(void **sim, void *base)
       continue;
     }
 
-    slist=(struct session_list_s *)malloc(sizeof(struct session_list_s));
+    slist = (struct session_list_s *)malloc(sizeof(struct session_list_s));
     if(NULL == slist)
     {
       ret = RC_NOENMEM;
@@ -114,25 +114,31 @@ static int litex_sim_initialize_all(void **sim, void *base)
     }
     sesslist = slist;
 
+    fprintf(stderr, "looking at module: %s iface #: %d\n", mli->name, mli->niface);
+
     /* For each interface */
-    for(i = 0; i < mli->niface; i++)
+    for(i = 0; i < mli->niface + 1; i++)
     {
-      /*Find the pads */
-      pplist=NULL;
+      fprintf(stderr, "looking at module: %s iface: %s %d %d\n", mli->name, mli->iface[i].name, i, mli->iface[i].index);
+      /* Find the pads */
+      pplist = NULL;
       ret = litex_sim_pads_find(plist, mli->iface[i].name, mli->iface[i].index, &pplist);
       if(RC_OK != ret)
       {
-	goto out;
+        eprintf("Could not find pads for interface %s with index %d\n", mli->iface[i].name, mli->iface[i].index);
+	      goto out;
       }
       if(NULL == pplist)
       {
-	eprintf("Could not find interface %s with index %d\n", mli->iface[i].name, mli->iface[i].index);
-	continue;
+        eprintf("Could not find interface %s with index %d\n", mli->iface[i].name, mli->iface[i].index);
+        continue;
       }
-      ret = pmlist->module->add_pads(slist->session, pplist);
+      eprintf("Adding pads for %s %s %d %d\n", mli->name, mli->iface[i].name, i, mli->iface[i].index);
+      ret = pmlist->module->add_pads(slist->session, pplist, mli->iface[i].name);
       if(RC_OK != ret)
       {
-	goto out;
+        eprintf("Error adding pads for module '%s' and interface #%d %d '%s'\n", mli->name, i, mli->iface[i].index, mli->iface[i].name);
+	      goto out;
       }
     }
   }

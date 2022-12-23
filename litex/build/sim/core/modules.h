@@ -35,7 +35,7 @@ struct ext_module_s {
   char *name;
   int (*start)(void *);
   int (*new_sess)(void **, char *);
-  int (*add_pads)(void *, struct pad_list_s *);
+  int (*add_pads)(void *session, struct pad_list_s *pad_list, const char *iface_name);
   int (*close)(void*);
   int (*tick)(void*, uint64_t);
 };
