@@ -26,6 +26,7 @@ from migen.fhdl.conv_output import ConvOutput
 from migen.fhdl.specials import Memory
 
 from litex.gen.fhdl.namer import build_namespace
+from litex.gen.fhdl.sim import Time
 from litex.build.tools import get_litex_git_revision
 
 # ------------------------------------------------------------------------------------------------ #
@@ -141,18 +142,6 @@ _ieee_1800_2017_verilog_reserved_keywords = {
 # ------------------------------------------------------------------------------------------------ #
 #                                       EXPRESSIONS                                                #
 # ------------------------------------------------------------------------------------------------ #
-
-# Stub for $time in Display()/Measure() args -------------------------------------------------------
-
-class Time:
-    """Expression for $time in Display()/Measure() statements
-    
-    Example:
-    self.sync += If(state != old_state,
-        Display("time=%t old_state: %d state: %d", Time(), old_state, state)
-    )
-    """
-    pass
 
 # Print Constant -----------------------------------------------------------------------------------
 
@@ -346,6 +335,9 @@ def _print_node(ns, at, level, node, target_filter=None):
             s += ", "
             if isinstance(arg, Signal):
                 s += ns.get_name(arg)
+            elif isinstance(arg, (Cat, _Slice, Replicate)):
+                f = _print_expression(ns, arg)[0]
+                s += f
             elif isinstance(arg, Time):
                 s += "$time"
             else:
