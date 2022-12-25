@@ -64,7 +64,7 @@ struct session_s {
 // Module interface
 static int spdeeprom_start();
 static int spdeeprom_new(void **sess, char *args);
-static int spdeeprom_add_pads(void *sess, struct pad_list_s *plist);
+static int spdeeprom_add_pads(void *sess, struct pad_list_s *plist, const char *iface_name);
 static int spdeeprom_tick(void *sess, uint64_t time_ps);
 // EEPROM simulation
 static void fsm_tick(struct session_s *s);
@@ -137,7 +137,7 @@ out:
   return ret;
 }
 
-static int spdeeprom_add_pads(void *sess, struct pad_list_s *plist)
+static int spdeeprom_add_pads(void *sess, struct pad_list_s *plist, const char *iface_name)
 {
   int ret = RC_OK;
   struct session_s *s = (struct session_s*) sess;

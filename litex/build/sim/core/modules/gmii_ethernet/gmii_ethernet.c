@@ -469,7 +469,7 @@ void event_handler(int tap_fd, short event, void *arg) {
     }
 }
 
-static int gmii_ethernet_add_pads(void *state, struct pad_list_s *plist) {
+static int gmii_ethernet_add_pads(void *state, struct pad_list_s *plist, const char *iface_name) {
     int ret = RC_OK;
     gmii_ethernet_state_t *s = (gmii_ethernet_state_t*) state;
     struct pad_s *pads;

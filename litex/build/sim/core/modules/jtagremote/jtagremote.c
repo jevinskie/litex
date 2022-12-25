@@ -183,7 +183,7 @@ out:
   return ret;
 }
 
-static int jtagremote_add_pads(void *sess, struct pad_list_s *plist)
+static int jtagremote_add_pads(void *sess, struct pad_list_s *plist, const char *iface_name)
 {
   int ret=RC_OK;
   struct session_s *s=(struct session_s*)sess;

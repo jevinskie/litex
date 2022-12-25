@@ -116,7 +116,6 @@ static void read_handler(int fd, short event, void *arg) {
         event_free(s->ev);
         s->ev = NULL;
     }
-    printf("serial2tcp got packet\n");
     for (i = 0; i < read_len; i++) {
         s->databuf[(s->data_start + s->datalen) % 2048] = buffer[i];
         s->datalen++;
