@@ -16,7 +16,6 @@
 import time
 import datetime
 
-from functools import partial
 from operator import itemgetter
 import collections
 
@@ -142,6 +141,18 @@ _ieee_1800_2017_verilog_reserved_keywords = {
 # ------------------------------------------------------------------------------------------------ #
 #                                       EXPRESSIONS                                                #
 # ------------------------------------------------------------------------------------------------ #
+
+# Stub for $time in Display()/Measure() args -------------------------------------------------------
+
+class Time:
+    """Expression for $time in Display()/Measure() statements
+    
+    Example:
+    self.sync += If(state != old_state,
+        Display("time=%t old_state: %d state: %d", Time(), old_state, state)
+    )
+    """
+    pass
 
 # Print Constant -----------------------------------------------------------------------------------
 
@@ -335,6 +346,8 @@ def _print_node(ns, at, level, node, target_filter=None):
             s += ", "
             if isinstance(arg, Signal):
                 s += ns.get_name(arg)
+            elif isinstance(arg, Time):
+                s += "$time"
             else:
                 s += str(arg)
         return _tab*level + "$display(" + s + ");\n"
