@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 
-from migen import Display, FSM, If, Module, Signal
+from migen import ClockDomain, ClockDomainsRenamer, Display, FSM, If, Module, Signal
 
 # ------------------------------------------------------------------------------------------------ #
 #                                       SIMULATION                                                 #
@@ -23,6 +23,14 @@ class Time:
     """
     pass
 
+class Cycles(Module):
+    def __init__(self, cd_name="sys", nbits=64) -> None:
+        class ClockDomainCounter(Module):
+            def __init__(self) -> None:
+                self.count = Signal(nbits)
+                self.sync += self.count.eq(self.count + 1)
+        self.submodules.cd_counter = ClockDomainsRenamer(cd_name)(ClockDomainCounter())
+        self.count = self.cd_counter.count
 
 # Wraps a Signal with metadata, e.g. on_change -----------------------------------------------------
 class MonitorArg:
@@ -53,10 +61,11 @@ class Monitor(Module):
                 arg_sigs.append(arg.signal)
                 if arg.fmt is not None:
                     fmt_replacements[arg.name] = arg.fmt
-                if arg.on_change:
+                if arg.on_change and isinstance(arg.signal, Signal):
                     monitored_sigs.append(arg.signal)
             else:
                 arg_sigs.append(arg)
+            if isinstance(arg, Signal):
                 monitored_sigs.append(arg)
         fmt = fmt.format(**fmt_replacements)
 

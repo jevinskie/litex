@@ -333,9 +333,7 @@ def _print_node(ns, at, level, node, target_filter=None):
         s = "\"" + node.s + "\""
         for arg in node.args:
             s += ", "
-            if isinstance(arg, Signal):
-                s += ns.get_name(arg)
-            elif isinstance(arg, (Cat, _Slice, Replicate)):
+            if isinstance(arg, (Signal, Cat, _Slice, Replicate, _Operator)):
                 f = _print_expression(ns, arg)[0]
                 s += f
             elif isinstance(arg, Time):
