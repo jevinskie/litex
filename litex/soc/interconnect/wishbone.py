@@ -45,6 +45,18 @@ CTI_BURST_END          = 0b111
 
 
 class Interface(Record):
+    adr: Signal
+    dat_w: Signal
+    dat_r: Signal
+    sel: Signal
+    cyc: Signal
+    stb: Signal
+    ack: Signal
+    we: Signal
+    cti: Signal
+    bte: Signal
+    err: Signal
+
     def __init__(self, data_width=32, adr_width=30, bursting=False, **kwargs):
         self.data_width = data_width
         if kwargs.get("address_width", False):
