@@ -246,6 +246,7 @@ int main(int argc, char *argv[])
   ev = event_new(base, -1, EV_PERSIST, cb, vsim);
   event_add(ev, &tv);
   event_base_dispatch(base);
+  litex_sim_trace_final_dump();
 #if VM_COVERAGE
   litex_sim_coverage_dump();
 #endif

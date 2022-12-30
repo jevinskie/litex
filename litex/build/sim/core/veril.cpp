@@ -94,6 +94,12 @@ extern "C" int litex_sim_got_finish()
   return Verilated::gotFinish();
 }
 
+extern "C" void litex_sim_trace_final_dump()
+{
+  assert(tfp);
+  tfp->close();
+}
+
 #if VM_COVERAGE
 extern "C" void litex_sim_coverage_dump()
 {
