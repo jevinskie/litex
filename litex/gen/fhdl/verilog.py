@@ -280,7 +280,11 @@ def _print_expression(ns, node):
 (_AT_BLOCKING, _AT_NONBLOCKING, _AT_SIGNAL) = range(3)
 
 def _print_node(ns, at, level, node, target_filter=None):
-    if target_filter is not None and target_filter not in list_targets(node):
+    if isinstance(node, SimStatement):
+        pass
+    if isinstance(target_filter, SimStatement):
+        pass
+    if target_filter is not None and target_filter not in list_targets(node) | list_sim_calls(node):
         return ""
 
     # Assignment.
@@ -317,6 +321,9 @@ def _print_node(ns, at, level, node, target_filter=None):
             css = sorted(css, key=lambda x: x[0].value)
             for choice, statements in css:
                 r += _tab*(level + 1) + _print_expression(ns, choice)[0] + ": begin\n"
+                for s in statements:
+                    if isinstance(s, Display):
+                        print(f"ssss: {s}")
                 r += _print_node(ns, at, level + 2, statements, target_filter)
                 r += _tab*(level + 1) + "end\n"
             if "default" in node.cases:
@@ -333,7 +340,7 @@ def _print_node(ns, at, level, node, target_filter=None):
         s = "\"" + node.s + "\""
         for arg in node.args:
             s += ", "
-            if isinstance(arg, (Signal, Cat, _Slice, Replicate, _Operator)):
+            if isinstance(arg, (Constant, Signal, Cat, _Slice, Replicate, _Operator)):
                 f = _print_expression(ns, arg)[0]
                 s += f
             elif isinstance(arg, Time):
@@ -345,6 +352,10 @@ def _print_node(ns, at, level, node, target_filter=None):
     # Finish.
     elif isinstance(node, Finish):
         return _tab*level + "$finish;\n"
+
+    # Empty. Handy for NodeTransformers that want to delete nodes.
+    elif isinstance(node, EmptyStatement):
+        return ""
 
     # Unknown.
     else:
@@ -455,12 +466,19 @@ def _print_combinatorial_logic_sim(f, ns):
             targets = list_targets(statement)
             for t in targets:
                 target_stmt_map[t].append(statement)
+            sim_calls = list_sim_calls(statement)
+            for sc in sim_calls:
+                target_stmt_map[sc].append(statement)
 
         groups = group_by_targets(f.comb)
 
         for n, (t, stmts) in enumerate(target_stmt_map.items()):
-            assert isinstance(t, Signal)
-            if len(stmts) == 1 and isinstance(stmts[0], _Assign):
+            assert isinstance(t, (Signal, SimStatement))
+            if isinstance(t, SimStatement):
+                r += "always @(*) begin\n"
+                r += _print_node(ns, _AT_NONBLOCKING, 1, stmts, t)
+                r += "end\n"
+            elif len(stmts) == 1 and isinstance(stmts[0], _Assign):
                 r += "assign " + _print_node(ns, _AT_BLOCKING, 0, stmts[0])
             else:
                 r += "always @(*) begin\n"

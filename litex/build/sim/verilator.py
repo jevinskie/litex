@@ -218,6 +218,7 @@ class SimVerilatorToolchain:
         if build:
             # Finalize design
             if not isinstance(fragment, _Fragment):
+                fragment._module_used = True
                 fragment = fragment.get_fragment()
             platform.finalize(fragment)
 
