@@ -321,9 +321,6 @@ def _print_node(ns, at, level, node, target_filter=None):
             css = sorted(css, key=lambda x: x[0].value)
             for choice, statements in css:
                 r += _tab*(level + 1) + _print_expression(ns, choice)[0] + ": begin\n"
-                for s in statements:
-                    if isinstance(s, Display):
-                        print(f"ssss: {s}")
                 r += _print_node(ns, at, level + 2, statements, target_filter)
                 r += _tab*(level + 1) + "end\n"
             if "default" in node.cases:
