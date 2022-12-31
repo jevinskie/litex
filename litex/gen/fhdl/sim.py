@@ -72,6 +72,7 @@ class Monitor(Module):
         old_vals = {sig: Signal.like(sig) for sig in monitored_sigs}
         changed = Signal()
 
+        self.comb += changed.eq(0)
         for sig, old_sig in old_vals.items():
             self.sync += old_sig.eq(sig)
             self.comb += changed.eq(changed | (old_sig != sig))
