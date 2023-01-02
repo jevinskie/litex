@@ -115,7 +115,7 @@ def Assert(expr: _Value, text: str = None):
     text = f", {text}" if text is not None else ""
     ns = build_namespace(list_signals(expr), _ieee_1800_2017_verilog_reserved_keywords)
     expr_text = _print_expression(ns, expr)[0]
-    yield If(not expr,
+    yield If(~expr,
         Display(f"Assertion failed: {expr_text}{text}"),
         Finish()
     )
