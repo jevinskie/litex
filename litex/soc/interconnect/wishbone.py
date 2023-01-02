@@ -247,8 +247,8 @@ class Decoder(Module):
 
         self.submodules.sys_clk_counter = Cycles()
         cyc = MonitorArg(self.sys_clk_counter.count, on_change=False)
-        ms = "%0d DEC m_ack: %0b m_dat_r: %0x"
-        ma = [cyc, master.ack, master.dat_r]
+        ms = "%0d DEC m_adr: %0x m_ack: %0b m_dat_r: %0x"
+        ma = [cyc, master.adr, master.ack, master.dat_r]
         for i in range(ns):
             ms += f" s[{i}].dat_r: %0x"
             ma.append(slaves[i][1].dat_r)
@@ -256,6 +256,8 @@ class Decoder(Module):
             ma.append(slaves[i][1].ack)
             ms += f" masked[{i}]: %0x"
             ma.append(masked[i])
+            ms += f" sel[{i}]: %0b"
+            ma.append(slave_sel_r[i])
         self.submodules += Monitor(ms, *ma)
 
 

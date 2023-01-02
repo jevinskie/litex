@@ -5,7 +5,10 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 
-from migen import ClockDomain, ClockDomainsRenamer, Display, FSM, If, Module, Signal
+from migen import ClockDomainsRenamer, Display, FSM, If, Module, Signal, Finish
+from migen.fhdl.structure import _Value
+from migen.fhdl.tools import list_signals
+from litex.gen.fhdl.namer import build_namespace
 
 # ------------------------------------------------------------------------------------------------ #
 #                                       SIMULATION                                                 #
@@ -106,3 +109,13 @@ class MonitorFSMState(Module):
         fmt += description
         for state in fsm.actions.keys():
             fsm.act(state, DisplayEnter(f"{fmt} entered {state}", *args))
+
+def Assert(expr: _Value, text: str = None):
+    from litex.gen.fhdl.verilog import _print_expression, _ieee_1800_2017_verilog_reserved_keywords
+    text = f", {text}" if text is not None else ""
+    ns = build_namespace(list_signals(expr), _ieee_1800_2017_verilog_reserved_keywords)
+    expr_text = _print_expression(ns, expr)[0]
+    yield If(not expr,
+        Display(f"Assertion failed: {expr_text}{text}"),
+        Finish()
+    )
