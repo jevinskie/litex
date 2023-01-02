@@ -110,61 +110,64 @@ class RemoteServer(EtherboneIPC):
             client_socket, addr = self.socket.accept()
             self._send_server_info(client_socket)
             print("Connected with " + addr[0] + ":" + str(addr[1]))
-            try:
-                # Serve Etherbone reads/writes.
-                while True:
-                    # Receive packet.
-                    try:
-                        packet = self.receive_packet(client_socket)
-                        if packet == 0:
-                            break
-                    except:
+            # Serve Etherbone reads/writes.
+            while True:
+                # Receive packet.
+                try:
+                    packet = self.receive_packet(client_socket)
+                    if packet is None:
                         break
+                except:
+                    break
 
-                    # Decode Packet.
-                    packet = EtherbonePacket(packet)
-                    packet.decode()
+                # Decode Packet.
+                packet = EtherbonePacket(packet)
+                packet.decode()
 
-                    # Get Packet's Record.
-                    record = packet.records.pop()
+                # Get Packet's Record.
+                record = packet.records.pop()
 
-                    # Hardware lock/reservation.
-                    while self.lock:
-                        time.sleep(0.01)
-                    self.lock = True
+                # Hardware lock/reservation.
+                while self.lock:
+                    time.sleep(0.01)
+                self.lock = True
 
-                    # Handle Etherbone writes.
-                    if record.writes != None:
-                        self.comm.write(record.writes.base_addr, record.writes.get_datas())
+                # Handle Etherbone writes.
+                if record.writes != None:
+                    self.comm.write(record.writes.base_addr, record.writes.get_datas())
 
-                    # Handle Etherbone reads.
-                    if record.reads != None:
-                        max_length = {
-                            "CommUART": 256,
-                            "CommUDP":    1,
-                        }.get(self.comm.__class__.__name__, 1)
-                        bursts = {
-                            "CommUART": ["incr", "fixed"]
-                        }.get(self.comm.__class__.__name__, ["incr"])
-                        reads = []
+                # Handle Etherbone reads.
+                if record.reads != None:
+                    max_length = {
+                        "CommUART": 256,
+                        "CommUDP":    1,
+                    }.get(self.comm.__class__.__name__, 1)
+                    bursts = {
+                        "CommUART": ["incr", "fixed"]
+                    }.get(self.comm.__class__.__name__, ["incr"])
+                    reads = []
+                    try:
                         for addr, length, burst in _read_merger(record.reads.get_addrs(),
                             max_length  = max_length,
                             bursts      = bursts):
                             reads += self.comm.read(addr, length, burst)
+                    except ConnectionError as e:
+                        print("Connection error. z")
+                        client_socket.close()
+                        break
 
-                        record = EtherboneRecord()
-                        record.writes = EtherboneWrites(datas=reads)
-                        record.wcount = len(record.writes)
+                    record = EtherboneRecord()
+                    record.writes = EtherboneWrites(datas=reads)
+                    record.wcount = len(record.writes)
 
-                        packet = EtherbonePacket()
-                        packet.records = [record]
-                        packet.encode()
-                        self.send_packet(client_socket, packet)
+                    packet = EtherbonePacket()
+                    packet.records = [record]
+                    packet.encode()
+                    self.send_packet(client_socket, packet)
 
-                    # Release hardware lock.
-                    self.lock = False
-
-            finally:
+                # Release hardware lock.
+                self.lock = False
+            else:
                 print("Disconnect")
                 client_socket.close()
 
@@ -216,88 +219,91 @@ def main():
     args = parser.parse_args()
 
 
-    # UART mode
-    if args.uart:
-        from litex.tools.remote.comm_uart import CommUART
-        if args.uart_port is None:
-            print("Need to specify --uart-port, exiting.")
-            exit()
-        uart_port = args.uart_port
-        uart_baudrate = int(float(args.uart_baudrate))
-        print("[CommUART] port: {} / baudrate: {} / ".format(uart_port, uart_baudrate), end="")
-        comm = CommUART(uart_port, uart_baudrate, debug=args.debug)
-
-    # TCP mode
-    elif args.sim_tcp:
-        from litex.tools.remote.comm_uart import CommUARTTCP
-        print(f"[CommUARTTCP] hostname: {args.sim_tcp_host} / port: {args.sim_tcp_port} / ", end="")
-        comm = CommUARTTCP(args.sim_tcp_host, args.sim_tcp_port, debug=args.debug)
-
-    # JTAG mode
-    elif args.jtag:
-        from litex.tools.litex_term import JTAGUART
-        from litex.tools.remote.comm_uart import CommUART
-        jtag_uart = JTAGUART(config=args.jtag_config, chain=int(args.jtag_chain))
-        jtag_uart.open()
-        print("[CommUART] port: JTAG / ", end="")
-        comm = CommUART(os.ttyname(jtag_uart.name), debug=args.debug)
-
-    # UDP mode
-    elif args.udp:
-        from litex.tools.remote.comm_udp import CommUDP
-        udp_ip   = args.udp_ip
-        udp_port = int(args.udp_port)
-        if args.udp_scan:
-            udp_ip = udp_ip.split(".")
-            assert len(udp_ip) == 4
-            udp_ip[3] = "x"
-            udp_ip = ".".join(udp_ip)
-            comm = CommUDP(udp_ip, udp_port, debug=args.debug)
-            comm.open(probe=False)
-            comm.scan(udp_ip)
-            comm.close()
-            exit()
-        else:
-            print("[CommUDP] ip: {} / port: {} / ".format(udp_ip, udp_port), end="")
-            comm = CommUDP(udp_ip, udp_port, debug=args.debug)
-
-    # PCIe mode
-    elif args.pcie:
-        from litex.tools.remote.comm_pcie import CommPCIe
-        pcie_bar = args.pcie_bar
-        if pcie_bar is None:
-            print("Need to speficy --pcie-bar, exiting.")
-            exit()
-        print("[CommPCIe] bar: {} / ".format(pcie_bar), end="")
-        comm = CommPCIe(pcie_bar, debug=args.debug)
-
-    # USB mode
-    elif args.usb:
-        from litex.tools.remote.comm_usb import CommUSB
-        if args.usb_pid is None and args.usb_vid is None:
-            print("Need to speficy --usb-vid or --usb-pid, exiting.")
-            exit()
-        print("[CommUSB] vid: {} / pid: {} / ".format(args.usb_vid, args.usb_pid), end="")
-        pid = args.usb_pid
-        if pid is not None:
-            pid = int(pid, base=0)
-        vid = args.usb_vid
-        if vid is not None:
-            vid = int(vid, base=0)
-        comm = CommUSB(vid=vid, pid=pid, max_retries=args.usb_max_retries, debug=args.debug)
-
-    else:
-        parser.print_help()
-        exit()
-
-    server = RemoteServer(comm, args.bind_ip, int(args.bind_port))
-    server.open()
-    server.start(4)
     try:
-        import time
-        while True: time.sleep(100)
-    except KeyboardInterrupt:
-        pass
+        # UART mode
+        if args.uart:
+            from litex.tools.remote.comm_uart import CommUART
+            if args.uart_port is None:
+                print("Need to specify --uart-port, exiting.")
+                exit()
+            uart_port = args.uart_port
+            uart_baudrate = int(float(args.uart_baudrate))
+            print("[CommUART] port: {} / baudrate: {} / ".format(uart_port, uart_baudrate), end="")
+            comm = CommUART(uart_port, uart_baudrate, debug=args.debug)
+
+        # TCP mode
+        elif args.sim_tcp:
+            from litex.tools.remote.comm_uart import CommUARTTCP
+            print(f"[CommUARTTCP] hostname: {args.sim_tcp_host} / port: {args.sim_tcp_port} / ", end="")
+            comm = CommUARTTCP(args.sim_tcp_host, args.sim_tcp_port, debug=args.debug)
+
+        # JTAG mode
+        elif args.jtag:
+            from litex.tools.litex_term import JTAGUART
+            from litex.tools.remote.comm_uart import CommUART
+            jtag_uart = JTAGUART(config=args.jtag_config, chain=int(args.jtag_chain))
+            jtag_uart.open()
+            print("[CommUART] port: JTAG / ", end="")
+            comm = CommUART(os.ttyname(jtag_uart.name), debug=args.debug)
+
+        # UDP mode
+        elif args.udp:
+            from litex.tools.remote.comm_udp import CommUDP
+            udp_ip   = args.udp_ip
+            udp_port = int(args.udp_port)
+            if args.udp_scan:
+                udp_ip = udp_ip.split(".")
+                assert len(udp_ip) == 4
+                udp_ip[3] = "x"
+                udp_ip = ".".join(udp_ip)
+                comm = CommUDP(udp_ip, udp_port, debug=args.debug)
+                comm.open(probe=False)
+                comm.scan(udp_ip)
+                comm.close()
+                exit()
+            else:
+                print("[CommUDP] ip: {} / port: {} / ".format(udp_ip, udp_port), end="")
+                comm = CommUDP(udp_ip, udp_port, debug=args.debug)
+
+        # PCIe mode
+        elif args.pcie:
+            from litex.tools.remote.comm_pcie import CommPCIe
+            pcie_bar = args.pcie_bar
+            if pcie_bar is None:
+                print("Need to speficy --pcie-bar, exiting.")
+                exit()
+            print("[CommPCIe] bar: {} / ".format(pcie_bar), end="")
+            comm = CommPCIe(pcie_bar, debug=args.debug)
+
+        # USB mode
+        elif args.usb:
+            from litex.tools.remote.comm_usb import CommUSB
+            if args.usb_pid is None and args.usb_vid is None:
+                print("Need to speficy --usb-vid or --usb-pid, exiting.")
+                exit()
+            print("[CommUSB] vid: {} / pid: {} / ".format(args.usb_vid, args.usb_pid), end="")
+            pid = args.usb_pid
+            if pid is not None:
+                pid = int(pid, base=0)
+            vid = args.usb_vid
+            if vid is not None:
+                vid = int(vid, base=0)
+            comm = CommUSB(vid=vid, pid=pid, max_retries=args.usb_max_retries, debug=args.debug)
+
+        else:
+            parser.print_help()
+            exit()
+
+        server = RemoteServer(comm, args.bind_ip, int(args.bind_port))
+        server.open()
+        server.start(4)
+        try:
+            import time
+            while True: time.sleep(100)
+        except KeyboardInterrupt:
+            pass
+    except ConnectionRefusedError:
+        print("Connection refused error.")
 
 if __name__ == "__main__":
     main()

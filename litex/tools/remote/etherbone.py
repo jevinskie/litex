@@ -368,7 +368,7 @@ class EtherboneIPC:
         while len(packet) < header_length:
             chunk = socket.recv(header_length - len(packet))
             if len(chunk) == 0:
-                return 0
+                return None
             else:
                 packet += chunk
         wcount, rcount = struct.unpack(">BB", packet[header_length-2:])
@@ -377,7 +377,7 @@ class EtherboneIPC:
         while len(packet) < packet_size:
             chunk = socket.recv(packet_size - len(packet))
             if len(chunk) == 0:
-                return 0
+                return None
             else:
                 packet += chunk
         return packet

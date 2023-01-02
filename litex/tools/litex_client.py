@@ -71,7 +71,10 @@ class RemoteClient(EtherboneIPC, CSRBuilder):
         self.send_packet(self.socket, packet)
 
         # Receive response
-        packet = EtherbonePacket(self.receive_packet(self.socket))
+        packet_bytes = self.receive_packet(self.socket)
+        if packet_bytes is None:
+            raise ConnectionError()
+        packet = EtherbonePacket(packet_bytes)
         packet.decode()
         datas = packet.records.pop().writes.get_datas()
         if self.debug:
@@ -371,53 +374,58 @@ def main():
     csr_csv = args.csr_csv
     port    = int(args.port, 0)
 
-    if args.ident:
-        dump_identifier(
-            host    = host,
-            csr_csv = csr_csv,
-            port    = port,
-        )
+    try:
+        if args.ident:
+            dump_identifier(
+                host    = host,
+                csr_csv = csr_csv,
+                port    = port,
+            )
 
-    if args.regs:
-        dump_registers(
-            host    = args.host,
-            csr_csv = csr_csv,
-            port    = port,
-            filter  = args.filter,
-        )
+        if args.regs:
+            dump_registers(
+                host    = args.host,
+                csr_csv = csr_csv,
+                port    = port,
+                filter  = args.filter,
+            )
 
-    if args.read:
-        try:
-           addr = int(args.read, 0)
-        except ValueError:
-            addr = reg2addr(host, csr_csv, args.read)
-        read_memory(
-            host    = args.host,
-            csr_csv = csr_csv,
-            port    = port,
-            addr    = addr,
-            length  = int(args.length, 0),
-        )
+        if args.read:
+            try:
+                addr = int(args.read, 0)
+            except ValueError:
+                addr = reg2addr(host, csr_csv, args.read)
+            read_memory(
+                host    = args.host,
+                csr_csv = csr_csv,
+                port    = port,
+                addr    = addr,
+                length  = int(args.length, 0),
+            )
 
-    if args.write:
-        try:
-           addr = int(args.write[0], 0)
-        except ValueError:
-            addr = reg2addr(host, csr_csv, args.write[0])
-        write_memory(
-            host    = args.host,
-            csr_csv = csr_csv,
-            port    = port,
-            addr    = addr,
-            data    = int(args.write[1], 0),
-        )
+        if args.write:
+            try:
+                addr = int(args.write[0], 0)
+            except ValueError:
+                addr = reg2addr(host, csr_csv, args.write[0])
+            write_memory(
+                host    = args.host,
+                csr_csv = csr_csv,
+                port    = port,
+                addr    = addr,
+                data    = int(args.write[1], 0),
+            )
 
-    if args.gui:
-        run_gui(
-            host    = args.host,
-            csr_csv = csr_csv,
-            port    = port,
-        )
+        if args.gui:
+            run_gui(
+                host    = args.host,
+                csr_csv = csr_csv,
+                port    = port,
+            )
+    except ConnectionError:
+        print("Connection error.")
+    except TimeoutError:
+        print("Connection timeout error.")
 
 if __name__ == "__main__":
     main()
