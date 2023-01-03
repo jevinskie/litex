@@ -152,7 +152,7 @@ class RemoteServer(EtherboneIPC):
                             bursts      = bursts):
                             reads += self.comm.read(addr, length, burst)
                     except ConnectionError as e:
-                        print("Connection error. z")
+                        print("Connection error.")
                         client_socket.close()
                         break
 
