@@ -3,6 +3,7 @@
 #include <system.h>
 #include <generated/mem.h>
 #include <generated/csr.h>
+#include <timer.h>
 
 void flush_l2_cache(void)
 {
@@ -12,6 +13,10 @@ void flush_l2_cache(void)
 		((volatile unsigned int *) MAIN_RAM_BASE)[i];
 	}
 #endif
+}
+
+uint32_t get_timestamp(void) {
+	return timer0_load_read() / (CONFIG_CLOCK_FREQUENCY/1000000.0);
 }
 
 void busy_wait(unsigned int ms)

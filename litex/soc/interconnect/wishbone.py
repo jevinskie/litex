@@ -245,21 +245,6 @@ class Decoder(Module):
         masked = [Replicate(slave_sel_r[i], len(master.dat_r)) & slaves[i][1].dat_r for i in range(ns)]
         self.comb += master.dat_r.eq(Reduce("OR", masked))
 
-        self.submodules.sys_clk_counter = Cycles()
-        cyc = MonitorArg(self.sys_clk_counter.count, on_change=False)
-        ms = "%0d DEC m_adr: %0x m_ack: %0b m_dat_r: %0x"
-        ma = [cyc, master.adr, master.ack, master.dat_r]
-        for i in range(ns):
-            ms += f" s[{i}].dat_r: %0x"
-            ma.append(slaves[i][1].dat_r)
-            ms += f" s[{i}].ack: %0b"
-            ma.append(slaves[i][1].ack)
-            ms += f" masked[{i}]: %0x"
-            ma.append(masked[i])
-            ms += f" sel[{i}]: %0b"
-            ma.append(slave_sel_r[i])
-        self.submodules += Monitor(ms, *ma)
-
 
 class InterconnectShared(Module):
     def __init__(self, masters, slaves, register=False, timeout_cycles=1e6):
