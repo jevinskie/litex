@@ -5,6 +5,7 @@ OBJECTS =  \
 	crc16.o    \
 	crc32.o    \
 	console.o  \
+	coremark.o \
 	system.o   \
 	progress.o \
 	memtest.o  \
