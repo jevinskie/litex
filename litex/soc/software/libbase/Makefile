@@ -5,14 +5,16 @@ OBJECTS =  \
 	crc16.o    \
 	crc32.o    \
 	console.o  \
-	coremark.o \
 	system.o   \
 	progress.o \
 	memtest.o  \
 	uart.o     \
 	spiflash.o \
 	i2c.o \
-	isr.o
+	isr.o \
+	timer.o
+
+OBJECTS+=coremark.o core_state.o core_matrix.o core_list_join.o core_main.o core_util.o
 
 all: libbase.a
 
@@ -23,6 +25,9 @@ libbase.a: $(OBJECTS)
 -include $(OBJECTS:.o=.d)
 
 %.o: $(LIBBASE_DIRECTORY)/%.c
+	$(compile)
+
+%.o: $(LIBBASE_DIRECTORY)/../coremark/%.c
 	$(compile)
 
 .PHONY: all clean

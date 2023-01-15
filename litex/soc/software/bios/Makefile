@@ -21,8 +21,6 @@ OBJECTS = boot-helper.o	\
 	  sim_debug.o		\
 	  main.o
 
-CFLAGS+= -DCONFIG_COREMARK
-
 ifneq "$(or $(BIOS_CONSOLE_NO_AUTOCOMPLETE),$(BIOS_CONSOLE_LITE))" ""
 CFLAGS += -DBIOS_CONSOLE_NO_AUTOCOMPLETE
 else

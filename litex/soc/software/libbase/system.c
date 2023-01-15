@@ -15,10 +15,6 @@ void flush_l2_cache(void)
 #endif
 }
 
-uint32_t get_timestamp(void) {
-	return timer0_value_read() / (CONFIG_CLOCK_FREQUENCY/1000000.0);
-}
-
 void busy_wait(unsigned int ms)
 {
 	timer0_en_write(0);

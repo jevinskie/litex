@@ -129,15 +129,14 @@ define_command(crc, crc_handler, "Compute CRC32 of a part of the address space",
 
 define_command(flush_cpu_dcache, flush_cpu_dcache, "Flush CPU data cache", SYSTEM_CMDS);
 
+extern void run_coremark(int nb_params, char **params);
 /**
  * Command "coremark"
  *
  * Run coremark benchmark
  *
  */
-#ifdef CONFIG_COREMARK
-define_command(run_coremark, run_coremark, "Run coremark", SYSTEM_CMDS);
-#endif
+define_command(coremark, run_coremark, "Run coremark", SYSTEM_CMDS);
 
 /**
  * Command "flush_l2_cache"
