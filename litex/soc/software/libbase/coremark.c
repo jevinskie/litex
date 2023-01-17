@@ -37,7 +37,7 @@ volatile ee_s32 seed3_volatile = 0x8;
 #endif
 
 #ifndef ITERATIONS
-#define ITERATIONS 100
+#define ITERATIONS 1
 #endif
 volatile ee_s32 seed4_volatile = ITERATIONS;
 volatile ee_s32 seed5_volatile = 0;
